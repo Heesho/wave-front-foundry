@@ -50,19 +50,12 @@ contract SaleTest is Test {
         assertTrue(totalQuoteRaw == 0);
     }
 
-    function testFuzz_Sale_Contribution(uint256 amount) public {
-        vm.assume(amount > 0);
+    function test_Sale_ContributionZeroFail() public {
         waveFront.create("Test1", "TEST1", "ipfs://test1");
         Sale sale = Sale(saleFactory.lastSale());
 
-        address user = address(0x123);
-        usdc.mint(user, amount);
-
-        vm.prank(user);
-        usdc.approve(address(sale), amount);
-
-        vm.prank(user);
-        sale.contribute(user, amount);
+        vm.expectRevert("Sale__ZeroInput()");
+        sale.contribute(address(0x123), 0);
     }
 
     function test_Sale_OpenMarketNoContribution() public {
@@ -80,6 +73,26 @@ contract SaleTest is Test {
         vm.expectRevert("Token__ZeroInput()");
         sale.openMarket();
         assertTrue(sale.ended() == false);
+    }
+
+    function testFuzz_Sale_Contribution(uint256 amount) public {
+        vm.assume(amount > 0);
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Sale sale = Sale(saleFactory.lastSale());
+
+        address user = address(0x123);
+        usdc.mint(user, amount);
+
+        vm.prank(user);
+        usdc.approve(address(sale), amount);
+
+        vm.prank(user);
+        sale.contribute(user, amount);
+
+        console.log("End Time: ", sale.endTime());
+        console.log("User Contribution: ", sale.account_QuoteRaw(user));
+        console.log("Total Quote Raw: ", sale.totalQuoteRaw());
+        console.log("Total Token Amt: ", sale.totalTokenAmt());
     }
 
     function testFuzz_Sale_OpenMarketWithContribution(uint256 amount) public {
@@ -132,6 +145,10 @@ contract SaleTest is Test {
 
         sale.openMarket();
 
+        console.log("User Contribution: ", sale.account_QuoteRaw(user));
+        console.log("Total Quote Raw: ", sale.totalQuoteRaw());
+        console.log("Total Token Amt: ", sale.totalTokenAmt());
+
         assertTrue(Token(token).balanceOf(user) == 0);
         sale.redeem(user);
         assertTrue(Token(token).balanceOf(user) > 0);
@@ -141,6 +158,10 @@ contract SaleTest is Test {
 
         vm.expectRevert("Sale__NothingToRedeem()");
         sale.redeem(address(0x456));
+
+        console.log("User Contribution: ", sale.account_QuoteRaw(user));
+        console.log("Total Quote Raw: ", sale.totalQuoteRaw());
+        console.log("Total Token Amt: ", sale.totalTokenAmt());
     }
 
     function testFuzz_Sale_ContributeAfterClose(uint256 amount) public {
