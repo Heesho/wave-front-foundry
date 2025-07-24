@@ -50,12 +50,20 @@ contract SaleTest is Test {
         assertTrue(totalQuoteRaw == 0);
     }
 
-    function test_Sale_ContributionZeroFail() public {
+    function testRevert_Sale_ContributionZeroAmount() public {
         waveFront.create("Test1", "TEST1", "ipfs://test1");
         Sale sale = Sale(saleFactory.lastSale());
 
-        vm.expectRevert("Sale__ZeroInput()");
+        vm.expectRevert("Sale__ZeroQuoteRaw()");
         sale.contribute(address(0x123), 0);
+    }
+
+    function testRevert_Sale_ContributionZeroAddress() public {
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Sale sale = Sale(saleFactory.lastSale());
+
+        vm.expectRevert("Sale__ZeroTo()");
+        sale.contribute(address(0), 100);
     }
 
     function test_Sale_OpenMarketNoContribution() public {
@@ -153,11 +161,14 @@ contract SaleTest is Test {
         sale.redeem(user);
         assertTrue(Token(token).balanceOf(user) > 0);
 
-        vm.expectRevert("Sale__NothingToRedeem()");
+        vm.expectRevert("Sale__ZeroQuoteRaw()");
         sale.redeem(user);
 
-        vm.expectRevert("Sale__NothingToRedeem()");
+        vm.expectRevert("Sale__ZeroQuoteRaw()");
         sale.redeem(address(0x456));
+
+        vm.expectRevert("Sale__ZeroWho()");
+        sale.redeem(address(0));
 
         console.log("User Contribution: ", sale.account_QuoteRaw(user));
         console.log("Total Quote Raw: ", sale.totalQuoteRaw());

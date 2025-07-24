@@ -26,7 +26,12 @@ interface IToken {
     function heal(uint256 amount) external;
 }
 
-contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard {
+contract Content is
+    ERC721,
+    ERC721Enumerable,
+    ERC721URIStorage,
+    ReentrancyGuard
+{
     using SafeERC20 for IERC20;
 
     address public immutable rewarder;
@@ -38,36 +43,52 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
     mapping(uint256 => uint256) public id_Price;
     mapping(uint256 => address) public id_Creator;
 
-    error Content__InvalidAccount();
-    error Content__InvalidPayment();
+    error Content__ZeroTo();
     error Content__InvalidTokenId();
     error Content__TransferDisabled();
 
-    event Content__Created(address indexed account, uint256 indexed tokenId, string uri);
-    event Content__Curated(address indexed account, uint256 indexed tokenId, uint256 price);
+    event Content__Created(
+        address indexed who,
+        address indexed to,
+        uint256 indexed tokenId,
+        string uri
+    );
+    event Content__Curated(
+        address indexed who,
+        address indexed to,
+        uint256 indexed tokenId,
+        uint256 price
+    );
 
-    constructor(string memory _name, string memory _symbol, address _token, address _quote, address rewarderFactory)
-        ERC721(_name, _symbol)
-    {
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        address _token,
+        address _quote,
+        address rewarderFactory
+    ) ERC721(_name, _symbol) {
         token = _token;
         quote = _quote;
         rewarder = IRewarderFactory(rewarderFactory).create(address(this));
     }
 
-    function create(address account, string memory _uri) external nonReentrant returns (uint256 tokenId) {
-        if (account == address(0)) revert Content__InvalidAccount();
+    function create(
+        address to,
+        string memory _uri
+    ) external nonReentrant returns (uint256 tokenId) {
+        if (to == address(0)) revert Content__ZeroTo();
 
         tokenId = ++nextTokenId;
-        id_Creator[tokenId] = account;
+        id_Creator[tokenId] = to;
 
-        _safeMint(account, tokenId);
+        _safeMint(to, tokenId);
         _setTokenURI(tokenId, _uri);
 
-        emit Content__Created(account, tokenId, _uri);
+        emit Content__Created(msg.sender, to, tokenId, _uri);
     }
 
-    function curate(address account, uint256 tokenId) external nonReentrant {
-        if (account == address(0)) revert Content__InvalidAccount();
+    function curate(address to, uint256 tokenId) external nonReentrant {
+        if (to == address(0)) revert Content__ZeroTo();
         if (ownerOf(tokenId) == address(0)) revert Content__InvalidTokenId();
 
         address creator = id_Creator[tokenId];
@@ -77,7 +98,7 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
         uint256 surplus = nextPrice - prevPrice;
 
         id_Price[tokenId] = nextPrice;
-        _transfer(prevOwner, account, tokenId);
+        _transfer(prevOwner, to, tokenId);
 
         IERC20(quote).safeTransferFrom(msg.sender, address(this), nextPrice);
 
@@ -91,9 +112,9 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
         if (prevPrice > 0) {
             IRewarder(rewarder).withdraw(prevOwner, prevPrice);
         }
-        IRewarder(rewarder).deposit(account, nextPrice);
+        IRewarder(rewarder).deposit(to, nextPrice);
 
-        emit Content__Curated(account, tokenId, nextPrice);
+        emit Content__Curated(msg.sender, to, tokenId, nextPrice);
     }
 
     function distribute() external {
@@ -116,26 +137,43 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
         }
     }
 
-    function transferFrom(address, address, uint256) public virtual override(ERC721, IERC721) {
+    function transferFrom(
+        address,
+        address,
+        uint256
+    ) public virtual override(ERC721, IERC721) {
         revert Content__TransferDisabled();
     }
 
-    function safeTransferFrom(address, address, uint256) public virtual override(ERC721, IERC721) {
+    function safeTransferFrom(
+        address,
+        address,
+        uint256
+    ) public virtual override(ERC721, IERC721) {
         revert Content__TransferDisabled();
     }
 
-    function safeTransferFrom(address, address, uint256, bytes memory) public virtual override(ERC721, IERC721) {
+    function safeTransferFrom(
+        address,
+        address,
+        uint256,
+        bytes memory
+    ) public virtual override(ERC721, IERC721) {
         revert Content__TransferDisabled();
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 firstTokenId, uint256 batchSize)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 firstTokenId,
+        uint256 batchSize
+    ) internal override(ERC721, ERC721Enumerable) {
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
 
-    function supportsInterface(bytes4 interfaceId)
+    function supportsInterface(
+        bytes4 interfaceId
+    )
         public
         view
         override(ERC721, ERC721Enumerable, ERC721URIStorage)
@@ -144,11 +182,15 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
         return super.supportsInterface(interfaceId);
     }
 
-    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
+    function _burn(
+        uint256 tokenId
+    ) internal override(ERC721, ERC721URIStorage) {
         super._burn(tokenId);
     }
 
-    function tokenURI(uint256 tokenId) public view override(ERC721, ERC721URIStorage) returns (string memory) {
+    function tokenURI(
+        uint256 tokenId
+    ) public view override(ERC721, ERC721URIStorage) returns (string memory) {
         return super.tokenURI(tokenId);
     }
 
@@ -162,11 +204,20 @@ contract ContentFactory {
 
     event ContentFactory__Created(address indexed content);
 
-    function create(string memory name, string memory symbol, address token, address quote, address rewarderFactory)
-        external
-        returns (address, address)
-    {
-        Content content = new Content(name, symbol, token, quote, rewarderFactory);
+    function create(
+        string memory name,
+        string memory symbol,
+        address token,
+        address quote,
+        address rewarderFactory
+    ) external returns (address, address) {
+        Content content = new Content(
+            name,
+            symbol,
+            token,
+            quote,
+            rewarderFactory
+        );
         lastContent = address(content);
         emit ContentFactory__Created(lastContent);
         return (address(content), content.rewarder());
