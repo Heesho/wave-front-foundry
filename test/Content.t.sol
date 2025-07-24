@@ -82,4 +82,295 @@ contract ContentTest is Test {
         assertTrue(price == 0);
         assertTrue(creator == address(0x789));
     }
+
+    function testRevert_Content_CurateMarketClosed() public {
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Content content = Content(contentFactory.lastContent());
+
+        content.create(address(0x123), "ipfs://content1");
+        uint256 nextTokenId = content.nextTokenId();
+        uint256 price = content.id_Price(1);
+        address creator = content.id_Creator(1);
+        address owner = content.ownerOf(1);
+
+        assertTrue(nextTokenId == 1);
+        assertTrue(price == 0);
+        assertTrue(creator == address(0x123));
+        assertTrue(owner == address(0x123));
+
+        uint256 nextPrice = content.getNextPrice(1);
+        assertTrue(nextPrice == 1e6);
+
+        usdc.mint(address(0x456), 1e6);
+
+        vm.prank(address(0x456));
+        usdc.approve(address(content), 1e6);
+
+        vm.prank(address(0x456));
+        vm.expectRevert("Token__InvalidShift()");
+        content.curate(address(0x456), 1);
+
+        nextTokenId = content.nextTokenId();
+        price = content.id_Price(1);
+        creator = content.id_Creator(1);
+        owner = content.ownerOf(1);
+
+        assertTrue(nextTokenId == 1);
+        assertTrue(price == 0);
+        assertTrue(creator == address(0x123));
+        assertTrue(owner == address(0x123));
+
+        nextPrice = content.getNextPrice(1);
+        assertTrue(nextPrice == 1e6);
+    }
+
+    function test_Content_Curate() public {
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Content content = Content(contentFactory.lastContent());
+        Sale sale = Sale(saleFactory.lastSale());
+
+        usdc.mint(address(0x789), 1e6);
+
+        vm.prank(address(0x789));
+        usdc.approve(address(sale), 1e6);
+
+        vm.prank(address(0x789));
+        sale.contribute(address(0x789), 1e6);
+
+        vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+        sale.openMarket();
+
+        content.create(address(0x123), "ipfs://content1");
+        uint256 nextTokenId = content.nextTokenId();
+        uint256 price = content.id_Price(1);
+        address creator = content.id_Creator(1);
+        address owner = content.ownerOf(1);
+
+        assertTrue(nextTokenId == 1);
+        assertTrue(price == 0);
+        assertTrue(creator == address(0x123));
+        assertTrue(owner == address(0x123));
+
+        uint256 nextPrice = content.getNextPrice(1);
+        assertTrue(nextPrice == 1e6);
+
+        usdc.mint(address(0x456), 1e6);
+
+        vm.prank(address(0x456));
+        usdc.approve(address(content), 1e6);
+
+        vm.prank(address(0x456));
+        content.curate(address(0x456), 1);
+
+        nextTokenId = content.nextTokenId();
+        price = content.id_Price(1);
+        creator = content.id_Creator(1);
+        owner = content.ownerOf(1);
+
+        assertTrue(nextTokenId == 1);
+        assertTrue(price == 1e6);
+        assertTrue(creator == address(0x123));
+        assertTrue(owner == address(0x456));
+
+        nextPrice = content.getNextPrice(1);
+        assertTrue(nextPrice == (price * 11) / 10 + 1e6);
+    }
+
+    function test_Content_CurateManyTimes() public {
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Content content = Content(contentFactory.lastContent());
+        // Token token = Token(tokenFactory.lastToken());
+        Sale sale = Sale(saleFactory.lastSale());
+
+        usdc.mint(address(0x789), 1e6);
+
+        vm.prank(address(0x789));
+        usdc.approve(address(sale), 1e6);
+
+        vm.prank(address(0x789));
+        sale.contribute(address(0x789), 1e6);
+
+        vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+        sale.openMarket();
+
+        content.create(address(0x123), "ipfs://content1");
+        uint256 nextTokenId = content.nextTokenId();
+        uint256 price = content.id_Price(1);
+        address creator = content.id_Creator(1);
+        address owner = content.ownerOf(1);
+
+        assertTrue(nextTokenId == 1);
+        assertTrue(price == 0);
+        assertTrue(creator == address(0x123));
+        assertTrue(owner == address(0x123));
+
+        for (uint256 i = 0; i < 200; i++) {
+            address user = address(uint160(i + 1));
+            uint256 lastPrice = content.id_Price(1);
+            price = content.getNextPrice(1);
+            // console.log("Curate Count: ", i);
+            // console.log("Curate Price: $", price / 1e6);
+            // console.log("Token Price: $", Token(token).getMarketPrice() / 1e18);
+            // console.log();
+            assertTrue(price == (lastPrice * 11) / 10 + 1e6);
+
+            usdc.mint(user, price);
+
+            vm.prank(user);
+            usdc.approve(address(content), price);
+
+            vm.prank(user);
+            content.curate(user, 1);
+
+            uint256 nextPrice = content.getNextPrice(1);
+            creator = content.id_Creator(1);
+            owner = content.ownerOf(1);
+
+            assertTrue(nextPrice == (price * 11) / 10 + 1e6);
+            assertTrue(creator == address(0x123));
+            assertTrue(owner == user);
+        }
+    }
+
+    function test_Content_Distribute(uint256 amount) public {
+        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Content content = Content(contentFactory.lastContent());
+        Token token = Token(tokenFactory.lastToken());
+        Sale sale = Sale(saleFactory.lastSale());
+        Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
+
+        content.distribute();
+        uint256 tokenBalanceContent = token.balanceOf(address(content));
+        uint256 tokenBalanceRewarder = token.balanceOf(address(rewarder));
+        uint256 usdcBalanceContent = usdc.balanceOf(address(content));
+        uint256 usdcBalanceRewarder = usdc.balanceOf(address(rewarder));
+
+        assertTrue(tokenBalanceContent == 0);
+        assertTrue(tokenBalanceRewarder == 0);
+        assertTrue(usdcBalanceContent == 0);
+        assertTrue(usdcBalanceRewarder == 0);
+
+        usdc.mint(address(0x123), amount);
+
+        vm.prank(address(0x123));
+        usdc.approve(address(sale), amount);
+
+        vm.prank(address(0x123));
+        sale.contribute(address(0x123), amount);
+
+        vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+        sale.openMarket();
+
+        sale.redeem(address(0x123));
+
+        usdc.mint(address(content), amount);
+
+        uint256 userTokenBalance = token.balanceOf(address(0x123));
+
+        vm.prank(address(0x123));
+        token.transfer(address(content), userTokenBalance);
+
+        content.distribute();
+
+        tokenBalanceContent = token.balanceOf(address(content));
+        tokenBalanceRewarder = token.balanceOf(address(rewarder));
+        usdcBalanceContent = usdc.balanceOf(address(content));
+        usdcBalanceRewarder = usdc.balanceOf(address(rewarder));
+
+        uint256 duration = rewarder.duration();
+
+        if (userTokenBalance > duration) {
+            assertTrue(tokenBalanceContent == 0);
+            assertTrue(tokenBalanceRewarder > 0);
+        } else {
+            assertTrue(tokenBalanceContent > 0);
+            assertTrue(tokenBalanceRewarder == 0);
+        }
+
+        if (amount > duration) {
+            assertTrue(usdcBalanceContent == 0);
+            assertTrue(usdcBalanceRewarder > 0);
+        } else {
+            assertTrue(usdcBalanceContent > 0);
+            assertTrue(usdcBalanceRewarder == 0);
+        }
+    }
+
+    function testRevert_Content_Transfer() public {
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Content content = Content(contentFactory.lastContent());
+
+        content.create(address(0x123), "ipfs://content1");
+        uint256 nextTokenId = content.nextTokenId();
+        uint256 price = content.id_Price(1);
+        address creator = content.id_Creator(1);
+        address owner = content.ownerOf(1);
+
+        assertTrue(nextTokenId == 1);
+        assertTrue(price == 0);
+        assertTrue(creator == address(0x123));
+        assertTrue(owner == address(0x123));
+
+        vm.prank(address(0x123));
+        vm.expectRevert("Content__TransferDisabled()");
+        content.transferFrom(address(0x123), address(0x456), 1);
+
+        owner = content.ownerOf(1);
+        assertTrue(owner == address(0x123));
+
+        vm.prank(address(0x123));
+        vm.expectRevert("Content__TransferDisabled()");
+        content.safeTransferFrom(address(0x123), address(0x456), 1);
+
+        owner = content.ownerOf(1);
+        assertTrue(owner == address(0x123));
+
+        vm.prank(address(0x123));
+        vm.expectRevert("Content__TransferDisabled()");
+        content.safeTransferFrom(address(0x123), address(0x456), 1, "0x");
+
+        owner = content.ownerOf(1);
+        assertTrue(owner == address(0x123));
+    }
+
+    function test_Content_SupportsInterface() public {
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Content content = Content(contentFactory.lastContent());
+
+        assertTrue(content.supportsInterface(0x80ac58cd));
+        assertTrue(content.supportsInterface(0x5b5e139f));
+        assertTrue(content.supportsInterface(0x780e9d63));
+        assertTrue(content.supportsInterface(0x01ffc9a7));
+        assertFalse(content.supportsInterface(0x12345678));
+    }
+
+    function test_Content_TokenURI() public {
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Content content = Content(contentFactory.lastContent());
+
+        content.create(address(0x123), "ipfs://content1");
+        string memory tokenURI1 = content.tokenURI(1);
+
+        assertTrue(
+            keccak256(bytes(tokenURI1)) == keccak256(bytes("ipfs://content1"))
+        );
+
+        content.create(address(0x456), "ipfs://content2");
+        string memory tokenURI2 = content.tokenURI(2);
+
+        assertTrue(
+            keccak256(bytes(tokenURI2)) == keccak256(bytes("ipfs://content2"))
+        );
+
+        content.create(address(0x789), "ipfs://content3");
+        string memory tokenURI3 = content.tokenURI(3);
+
+        assertTrue(
+            keccak256(bytes(tokenURI3)) == keccak256(bytes("ipfs://content3"))
+        );
+    }
 }
