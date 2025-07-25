@@ -365,7 +365,6 @@ contract RewarderTest is Test {
     }
 
     function test_Rewarder_Coverage() public {
-
         waveFront.create("Test1", "TEST1", "ipfs://test1");
         Content content = Content(contentFactory.lastContent());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
@@ -379,7 +378,7 @@ contract RewarderTest is Test {
 
         vm.prank(address(content));
         rewarder.deposit(user2, 1e6);
-        
+
         assertTrue(rewarder.getRewardForDuration(address(usdc)) == 0);
 
         usdc.mint(address(content), 10e6);
@@ -408,6 +407,5 @@ contract RewarderTest is Test {
         assertTrue(rewarder.account_Token_LastRewardPerToken(user3, address(usdc)) > 0);
 
         assertTrue(rewarder.getRewardForDuration(address(usdc)) > 0);
-
     }
 }
