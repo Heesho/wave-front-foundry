@@ -274,6 +274,9 @@ contract ContentTest is Test {
         vm.prank(address(0x123));
         token.transfer(address(content), userTokenBalance);
 
+        uint256 tokenToDistro = token.balanceOf(address(content));
+        uint256 usdcToDistro = usdc.balanceOf(address(content));
+
         content.distribute();
 
         tokenBalanceContent = token.balanceOf(address(content));
@@ -283,7 +286,7 @@ contract ContentTest is Test {
 
         uint256 duration = rewarder.duration();
 
-        if (userTokenBalance > duration) {
+        if (tokenToDistro > duration) {
             assertTrue(tokenBalanceContent == 0);
             assertTrue(tokenBalanceRewarder > 0);
         } else {
@@ -291,7 +294,7 @@ contract ContentTest is Test {
             assertTrue(tokenBalanceRewarder == 0);
         }
 
-        if (amount > duration) {
+        if (usdcToDistro > duration) {
             assertTrue(usdcBalanceContent == 0);
             assertTrue(usdcBalanceRewarder > 0);
         } else {
@@ -355,22 +358,16 @@ contract ContentTest is Test {
         content.create(address(0x123), "ipfs://content1");
         string memory tokenURI1 = content.tokenURI(1);
 
-        assertTrue(
-            keccak256(bytes(tokenURI1)) == keccak256(bytes("ipfs://content1"))
-        );
+        assertTrue(keccak256(bytes(tokenURI1)) == keccak256(bytes("ipfs://content1")));
 
         content.create(address(0x456), "ipfs://content2");
         string memory tokenURI2 = content.tokenURI(2);
 
-        assertTrue(
-            keccak256(bytes(tokenURI2)) == keccak256(bytes("ipfs://content2"))
-        );
+        assertTrue(keccak256(bytes(tokenURI2)) == keccak256(bytes("ipfs://content2")));
 
         content.create(address(0x789), "ipfs://content3");
         string memory tokenURI3 = content.tokenURI(3);
 
-        assertTrue(
-            keccak256(bytes(tokenURI3)) == keccak256(bytes("ipfs://content3"))
-        );
+        assertTrue(keccak256(bytes(tokenURI3)) == keccak256(bytes("ipfs://content3")));
     }
 }

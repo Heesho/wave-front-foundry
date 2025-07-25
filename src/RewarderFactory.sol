@@ -24,7 +24,7 @@ contract Rewarder is ReentrancyGuard {
     mapping(address => Reward) public token_RewardData;
     mapping(address => bool) public token_IsReward;
 
-    mapping(address => mapping(address => uint256)) public account_Token_RewardPerTokenPaid;
+    mapping(address => mapping(address => uint256)) public account_Token_LastRewardPerToken;
     mapping(address => mapping(address => uint256)) public account_Token_Reward;
 
     uint256 public totalSupply;
@@ -43,7 +43,7 @@ contract Rewarder is ReentrancyGuard {
     error Rewarder__RewardSmallerThanLeft();
     error Rewarder__NotRewardToken();
     error Rewarder__RewardTokenAlreadyAdded();
-    error Rewarder__InvalidZeroInput();
+    error Rewarder__ZeroAmount();
 
     event Rewarder__RewardAdded(address indexed rewardToken);
     event Rewarder__RewardNotified(address indexed rewardToken, uint256 reward);
@@ -58,7 +58,7 @@ contract Rewarder is ReentrancyGuard {
             token_RewardData[token].lastUpdateTime = lastTimeRewardApplicable(token);
             if (account != address(0)) {
                 account_Token_Reward[account][token] = earned(account, token);
-                account_Token_RewardPerTokenPaid[account][token] = token_RewardData[token].rewardPerTokenStored;
+                account_Token_LastRewardPerToken[account][token] = token_RewardData[token].rewardPerTokenStored;
             }
         }
         _;
@@ -72,7 +72,7 @@ contract Rewarder is ReentrancyGuard {
     }
 
     modifier nonZeroInput(uint256 amount) {
-        if (amount == 0) revert Rewarder__InvalidZeroInput();
+        if (amount == 0) revert Rewarder__ZeroAmount();
         _;
     }
 
@@ -167,7 +167,7 @@ contract Rewarder is ReentrancyGuard {
 
     function earned(address account, address token) public view returns (uint256) {
         return (
-            (account_Balance[account] * (rewardPerToken(token) - account_Token_RewardPerTokenPaid[account][token]))
+            (account_Balance[account] * (rewardPerToken(token) - account_Token_LastRewardPerToken[account][token]))
                 / 1e18
         ) + account_Token_Reward[account][token];
     }
