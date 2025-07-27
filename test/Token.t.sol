@@ -56,4 +56,185 @@ contract TokenTest is Test {
 
         assertTrue(token.totalDebtRaw() == 0);
     }
+
+    function testRevert_Token_BuyBeforeOpen() public {
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+
+        Token token = Token(tokenFactory.lastToken());
+
+        address user = address(0x123);
+
+        usdc.mint(user, 100e6);
+
+        vm.prank(user);
+        usdc.approve(address(token), 100e6);
+
+        vm.prank(user);
+        vm.expectRevert("Token__MarketClosed()");
+        token.buy(100e6, 0, block.timestamp + 3600, user, address(0));
+    }
+
+    function test_Token_BuyBeforeOpenAsSale(uint256 amount) public {
+        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Token token = Token(tokenFactory.lastToken());
+        address sale = saleFactory.lastSale();
+
+        usdc.mint(sale, amount);
+
+        vm.prank(sale);
+        usdc.approve(address(token), amount);
+
+        vm.prank(sale);
+        token.buy(amount, 0, block.timestamp + 3600, sale, address(0));
+    }
+
+    function test_Token_BuyAfterOpen(uint256 amount) public {
+        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Token token = Token(tokenFactory.lastToken());
+        Sale sale = Sale(saleFactory.lastSale());
+
+        address user1 = address(0x123);
+        address user2 = address(0x456);
+
+        usdc.mint(user1, amount);
+
+        vm.prank(user1);
+        usdc.approve(address(sale), amount);
+
+        vm.prank(user1);
+        sale.contribute(user1, amount);
+
+        vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+        sale.openMarket();
+
+        usdc.mint(user2, 100e6);
+
+        vm.prank(user2);
+        usdc.approve(address(token), 100e6);
+
+        vm.prank(user2);
+        token.buy(100e6, 0, block.timestamp + 3600, user2, address(0));
+    }
+
+    function testFuzz_Token_BuyAfterOpen(uint256 amount) public {
+        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Token token = Token(tokenFactory.lastToken());
+        Sale sale = Sale(saleFactory.lastSale());
+
+        address user1 = address(0x123);
+        address user2 = address(0x456);
+
+        usdc.mint(user1, 100e6);
+
+        vm.prank(user1);
+        usdc.approve(address(sale), 100e6);
+
+        vm.prank(user1);
+        sale.contribute(user1, 100e6);
+
+        vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+        sale.openMarket();
+
+        usdc.mint(user2, amount);
+
+        vm.prank(user2);
+        usdc.approve(address(token), amount);
+
+        vm.prank(user2);
+        token.buy(amount, 0, block.timestamp + 3600, user2, address(0));
+    }
+
+    function testFuzzRevert_Token_BuyRevertSlippage(uint256 amount) public {
+        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Token token = Token(tokenFactory.lastToken());
+        Sale sale = Sale(saleFactory.lastSale());
+
+        address user1 = address(0x123);
+        address user2 = address(0x456);
+
+        usdc.mint(user1, 100e6);
+
+        vm.prank(user1);
+        usdc.approve(address(sale), 100e6);
+
+        vm.prank(user1);
+        sale.contribute(user1, 100e6);
+
+        vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+        sale.openMarket();
+
+        usdc.mint(user2, amount);
+
+        vm.prank(user2);
+        usdc.approve(address(token), amount);
+
+        vm.prank(user2);
+        vm.expectRevert("Token__Slippage()");
+        token.buy(amount, type(uint256).max, block.timestamp + 3600, user2, address(0));
+    }
+
+    function testRevert_Token_BuyZeroInput() public {
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Token token = Token(tokenFactory.lastToken());
+        Sale sale = Sale(saleFactory.lastSale());
+
+        address user1 = address(0x123);
+        address user2 = address(0x456);
+
+        usdc.mint(user1, 100e6);
+
+        vm.prank(user1);
+        usdc.approve(address(sale), 100e6);
+
+        vm.prank(user1);
+        sale.contribute(user1, 100e6);
+
+        vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+        sale.openMarket();
+
+        vm.prank(user2);
+        vm.expectRevert("Token__ZeroInput()");
+        token.buy(0, 0, block.timestamp + 3600, user2, address(0));
+    }
+
+    function testFuzzRevert_Token_BuyExpired(uint256 deadline) public {
+        vm.warp(block.timestamp + 100 weeks);
+
+        vm.assume(deadline > 0 && deadline < block.timestamp);
+        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        Token token = Token(tokenFactory.lastToken());
+        Sale sale = Sale(saleFactory.lastSale());
+
+        address user1 = address(0x123);
+        address user2 = address(0x456);
+
+        usdc.mint(user1, 100e6);
+
+        vm.prank(user1);
+        usdc.approve(address(sale), 100e6);
+
+        vm.prank(user1);
+        sale.contribute(user1, 100e6);
+
+        vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+        sale.openMarket();
+
+        usdc.mint(user2, 100e6);
+
+        vm.prank(user2);
+        usdc.approve(address(token), 100e6);
+
+        vm.prank(user2);
+        vm.expectRevert("Token__Expired()");
+        token.buy(100e6, 0, deadline, user2, address(0));
+    }
 }
