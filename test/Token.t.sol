@@ -89,7 +89,7 @@ contract TokenTest is Test {
         token.buy(amount, 0, block.timestamp + 3600, sale, address(0));
     }
 
-    function test_Token_BuyAfterOpen(uint256 amount) public {
+    function testFuzz_Token_BuyAfterOpenConstant(uint256 amount) public {
         vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
         waveFront.create("Test1", "TEST1", "ipfs://test1");
         Token token = Token(tokenFactory.lastToken());
@@ -115,8 +115,9 @@ contract TokenTest is Test {
         vm.prank(user2);
         usdc.approve(address(token), 100e6);
 
+        uint256 deadline = block.timestamp + 10000;
         vm.prank(user2);
-        token.buy(100e6, 0, block.timestamp + 3600, user2, address(0));
+        token.buy(100e6, 0, deadline, user2, address(0));
     }
 
     function testFuzz_Token_BuyAfterOpen(uint256 amount) public {
@@ -145,8 +146,9 @@ contract TokenTest is Test {
         vm.prank(user2);
         usdc.approve(address(token), amount);
 
+        uint256 deadline = block.timestamp + 10000;
         vm.prank(user2);
-        token.buy(amount, 0, block.timestamp + 3600, user2, address(0));
+        token.buy(amount, 0, deadline, user2, address(0));
     }
 
     function testFuzzRevert_Token_BuyRevertSlippage(uint256 amount) public {
@@ -175,9 +177,10 @@ contract TokenTest is Test {
         vm.prank(user2);
         usdc.approve(address(token), amount);
 
+        uint256 deadline = block.timestamp + 10000;
         vm.prank(user2);
         vm.expectRevert("Token__Slippage()");
-        token.buy(amount, type(uint256).max, block.timestamp + 3600, user2, address(0));
+        token.buy(amount, type(uint256).max, deadline, user2, address(0));
     }
 
     function testRevert_Token_BuyZeroInput() public {
