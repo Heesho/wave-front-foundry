@@ -16,9 +16,14 @@ interface ISaleFactory {
 }
 
 interface IContentFactory {
-    function create(string memory _name, string memory _symbol, address _token, address _quote, address rewarderFactory)
-        external
-        returns (address, address);
+    function create(
+        string memory name,
+        string memory symbol,
+        address _token,
+        address _quote,
+        address _owner,
+        address rewarderFactory
+    ) external returns (address, address);
 }
 
 contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
@@ -29,6 +34,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     uint256 public constant FEE = 100;
     uint256 public constant FEE_AMOUNT = 1_500;
     uint256 public constant DIVISOR = 10_000;
+    uint256 public constant MIN_TRADE_SIZE = 1_000;
 
     address public immutable wavefront;
     address public immutable quote;
@@ -49,9 +55,10 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     uint256 public totalDebtRaw;
     mapping(address => uint256) public account_DebtRaw;
 
-    error Token__ZeroInput();
     error Token__QuoteDecimals();
+    error Token__ZeroInput();
     error Token__Expired();
+    error Token__MinTradeSize();
     error Token__Slippage();
     error Token__MarketClosed();
     error Token__NotAuthorized();
@@ -93,17 +100,23 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         _;
     }
 
+    modifier minTradeSize(uint256 amount) {
+        if (amount < MIN_TRADE_SIZE) revert Token__MinTradeSize();
+        _;
+    }
+
     constructor(
-        string memory _name,
-        string memory _symbol,
+        string memory name,
+        string memory symbol,
         address _wavefront,
         address _quote,
         uint256 _initialSupply,
         uint256 _virtQuoteRaw,
+        address owner,
         address saleFactory,
         address contentFactory,
         address rewarderFactory
-    ) ERC20(_name, _symbol) ERC20Permit(_name) {
+    ) ERC20(name, symbol) ERC20Permit(name) {
         wavefront = _wavefront;
         quote = _quote;
 
@@ -118,13 +131,13 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
         sale = ISaleFactory(saleFactory).create(address(this), _quote);
         (content, rewarder) =
-            IContentFactory(contentFactory).create(_name, _symbol, address(this), _quote, rewarderFactory);
+            IContentFactory(contentFactory).create(name, symbol, address(this), _quote, owner, rewarderFactory);
     }
 
     function buy(uint256 quoteRawIn, uint256 minTokenAmtOut, uint256 deadline, address to, address provider)
         external
         nonReentrant
-        notZero(quoteRawIn)
+        minTradeSize(quoteRawIn)
         notExpired(deadline)
         returns (uint256 tokenAmtOut)
     {
@@ -158,12 +171,10 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     function sell(uint256 tokenAmtIn, uint256 minQuoteRawOut, uint256 deadline, address to, address provider)
         external
         nonReentrant
-        notZero(tokenAmtIn)
+        minTradeSize(tokenAmtIn)
         notExpired(deadline)
         returns (uint256 quoteRawOut)
     {
-        if (!open) revert Token__MarketClosed();
-
         uint256 feeAmt = (tokenAmtIn * FEE) / DIVISOR;
         uint256 netAmt = tokenAmtIn - feeAmt;
 
@@ -238,68 +249,47 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     function _processBuyFees(uint256 quoteRaw, address provider) internal returns (uint256 remainingRaw) {
         remainingRaw = quoteRaw;
-        uint256 shareRaw = (quoteRaw * FEE_AMOUNT) / DIVISOR;
+        uint256 feeRaw = (quoteRaw * FEE_AMOUNT) / DIVISOR;
 
-        if (provider != address(0) && shareRaw > 0) {
-            uint256 providerFee = shareRaw <= remainingRaw ? shareRaw : remainingRaw;
-            if (providerFee > 0) {
-                IERC20(quote).safeTransfer(provider, providerFee);
-                emit Token__ProviderFee(provider, providerFee, 0);
-                remainingRaw -= providerFee;
-            }
+        if (provider != address(0)) {
+            IERC20(quote).safeTransfer(provider, feeRaw);
+            emit Token__ProviderFee(provider, feeRaw, 0);
+            remainingRaw -= feeRaw;
         }
 
-        if (remainingRaw > 0) {
-            uint256 contentFee = shareRaw <= remainingRaw ? shareRaw : remainingRaw;
-            if (contentFee > 0) {
-                IERC20(quote).safeTransfer(content, contentFee);
-                emit Token__ContentFee(content, contentFee, 0);
-                remainingRaw -= contentFee;
-            }
-        }
+        IERC20(quote).safeTransfer(content, feeRaw);
+        emit Token__ContentFee(content, feeRaw, 0);
+        remainingRaw -= feeRaw;
 
         address treasury = IWaveFront(wavefront).treasury();
-        if (treasury != address(0) && remainingRaw > 0) {
-            uint256 treasuryFee = shareRaw <= remainingRaw ? shareRaw : remainingRaw;
-            if (treasuryFee > 0) {
-                IERC20(quote).safeTransfer(treasury, treasuryFee);
-                emit Token__TreasuryFee(treasury, treasuryFee, 0);
-                remainingRaw -= treasuryFee;
-            }
+        if (treasury != address(0)) {
+            IERC20(quote).safeTransfer(treasury, feeRaw);
+            emit Token__TreasuryFee(treasury, feeRaw, 0);
+            remainingRaw -= feeRaw;
         }
+
         return remainingRaw;
     }
 
     function _processSellFees(uint256 tokenAmt, address provider) internal returns (uint256 remainingAmt) {
         remainingAmt = tokenAmt;
-        uint256 shareAmt = (tokenAmt * FEE_AMOUNT) / DIVISOR;
+        uint256 feeAmt = (tokenAmt * FEE_AMOUNT) / DIVISOR;
 
-        if (provider != address(0) && shareAmt > 0) {
-            uint256 providerFee = shareAmt <= remainingAmt ? shareAmt : remainingAmt;
-            if (providerFee > 0) {
-                _mint(provider, providerFee);
-                emit Token__ProviderFee(provider, 0, providerFee);
-                remainingAmt -= providerFee;
-            }
+        if (provider != address(0)) {
+            _mint(provider, feeAmt);
+            emit Token__ProviderFee(provider, 0, feeAmt);
+            remainingAmt -= feeAmt;
         }
 
-        if (remainingAmt > 0) {
-            uint256 contentFee = shareAmt <= remainingAmt ? shareAmt : remainingAmt;
-            if (contentFee > 0) {
-                _mint(content, contentFee);
-                emit Token__ContentFee(content, 0, contentFee);
-                remainingAmt -= contentFee;
-            }
-        }
+        _mint(content, feeAmt);
+        emit Token__ContentFee(content, 0, feeAmt);
+        remainingAmt -= feeAmt;
 
         address treasury = IWaveFront(wavefront).treasury();
-        if (treasury != address(0) && remainingAmt > 0) {
-            uint256 treasuryFee = shareAmt <= remainingAmt ? shareAmt : remainingAmt;
-            if (treasuryFee > 0) {
-                _mint(treasury, treasuryFee);
-                emit Token__TreasuryFee(treasury, 0, treasuryFee);
-                remainingAmt -= treasuryFee;
-            }
+        if (treasury != address(0)) {
+            _mint(treasury, feeAmt);
+            emit Token__TreasuryFee(treasury, 0, feeAmt);
+            remainingAmt -= feeAmt;
         }
 
         return remainingAmt;
@@ -417,6 +407,7 @@ contract TokenFactory {
         address quote,
         uint256 initialSupply,
         uint256 reserveVirtQuoteRaw,
+        address owner,
         address saleFactory,
         address contentFactory,
         address rewarderFactory
@@ -429,6 +420,7 @@ contract TokenFactory {
                 quote,
                 initialSupply,
                 reserveVirtQuoteRaw,
+                owner,
                 saleFactory,
                 contentFactory,
                 rewarderFactory

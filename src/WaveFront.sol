@@ -11,6 +11,7 @@ interface ITokenFactory {
         address quote,
         uint256 initialSupply,
         uint256 reserveVirtQuoteRaw,
+        address owner,
         address saleFactory,
         address contentFactory,
         address rewarderFactory
@@ -76,7 +77,10 @@ contract WaveFront is Ownable {
         rewarderFactory = _rewarderFactory;
     }
 
-    function create(string memory name, string memory symbol, string memory uri) external returns (address token) {
+    function create(string memory name, string memory symbol, string memory uri, address owner)
+        external
+        returns (address token)
+    {
         index++;
 
         token = ITokenFactory(tokenFactory).create(
@@ -86,6 +90,7 @@ contract WaveFront is Ownable {
             quote,
             INITIAL_SUPPLY,
             RESERVE_VIRT_QUOTE_RAW,
+            owner,
             saleFactory,
             contentFactory,
             rewarderFactory

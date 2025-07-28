@@ -7,7 +7,7 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 interface IRewarderFactory {
-    function create(address _content) external returns (address);
+    function create(address content) external returns (address);
 }
 
 interface IRewarder {
@@ -32,6 +32,7 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
     address public immutable rewarder;
     address public immutable token;
     address public immutable quote;
+    address public owner;
 
     uint256 public nextTokenId;
 
@@ -39,22 +40,31 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
     mapping(uint256 => address) public id_Creator;
 
     error Content__ZeroTo();
+    error Content__OnlyOwner();
     error Content__InvalidTokenId();
     error Content__TransferDisabled();
 
     event Content__Created(address indexed who, address indexed to, uint256 indexed tokenId, string uri);
     event Content__Curated(address indexed who, address indexed to, uint256 indexed tokenId, uint256 price);
+    event Content__OwnerSet(address indexed owner);
 
-    constructor(string memory _name, string memory _symbol, address _token, address _quote, address rewarderFactory)
-        ERC721(_name, _symbol)
-    {
+    constructor(
+        string memory name,
+        string memory symbol,
+        address _token,
+        address _quote,
+        address _owner,
+        address rewarderFactory
+    ) ERC721(name, symbol) {
         token = _token;
         quote = _quote;
+        owner = _owner;
         rewarder = IRewarderFactory(rewarderFactory).create(address(this));
     }
 
     function create(address to, string memory _uri) external nonReentrant returns (uint256 tokenId) {
         if (to == address(0)) revert Content__ZeroTo();
+        if (owner != address(0) && msg.sender != owner) revert Content__OnlyOwner();
 
         tokenId = ++nextTokenId;
         id_Creator[tokenId] = to;
@@ -134,6 +144,12 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
 
+    function setOwner(address _owner) external {
+        if (msg.sender != owner) revert Content__OnlyOwner();
+        owner = _owner;
+        emit Content__OwnerSet(_owner);
+    }
+
     function supportsInterface(bytes4 interfaceId)
         public
         view
@@ -161,11 +177,15 @@ contract ContentFactory {
 
     event ContentFactory__Created(address indexed content);
 
-    function create(string memory name, string memory symbol, address token, address quote, address rewarderFactory)
-        external
-        returns (address, address)
-    {
-        Content content = new Content(name, symbol, token, quote, rewarderFactory);
+    function create(
+        string memory name,
+        string memory symbol,
+        address token,
+        address quote,
+        address owner,
+        address rewarderFactory
+    ) external returns (address, address) {
+        Content content = new Content(name, symbol, token, quote, owner, rewarderFactory);
         lastContent = address(content);
         emit ContentFactory__Created(lastContent);
         return (address(content), content.rewarder());

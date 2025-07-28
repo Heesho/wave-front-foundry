@@ -32,7 +32,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_Constructor() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Token token = Token(tokenFactory.lastToken());
         Content content = Content(contentFactory.lastContent());
 
@@ -44,7 +44,7 @@ contract ContentTest is Test {
     }
 
     function testRevert_Content_CreateAccountZero() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Content content = Content(contentFactory.lastContent());
 
         vm.expectRevert("Content__ZeroTo()");
@@ -52,7 +52,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_Create() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Content content = Content(contentFactory.lastContent());
 
         content.create(address(0x123), "ipfs://content1");
@@ -84,7 +84,7 @@ contract ContentTest is Test {
     }
 
     function testRevert_Content_CurateMarketClosed() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Content content = Content(contentFactory.lastContent());
 
         content.create(address(0x123), "ipfs://content1");
@@ -125,7 +125,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_Curate() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Content content = Content(contentFactory.lastContent());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -178,7 +178,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_CurateManyTimes() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Content content = Content(contentFactory.lastContent());
         // Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
@@ -235,8 +235,8 @@ contract ContentTest is Test {
     }
 
     function test_Content_Distribute(uint256 amount) public {
-        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Content content = Content(contentFactory.lastContent());
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
@@ -304,7 +304,7 @@ contract ContentTest is Test {
     }
 
     function testRevert_Content_Transfer() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Content content = Content(contentFactory.lastContent());
 
         content.create(address(0x123), "ipfs://content1");
@@ -341,7 +341,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_SupportsInterface() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Content content = Content(contentFactory.lastContent());
 
         assertTrue(content.supportsInterface(0x80ac58cd));
@@ -352,7 +352,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_TokenURI() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Content content = Content(contentFactory.lastContent());
 
         content.create(address(0x123), "ipfs://content1");
@@ -369,5 +369,81 @@ contract ContentTest is Test {
         string memory tokenURI3 = content.tokenURI(3);
 
         assertTrue(keccak256(bytes(tokenURI3)) == keccak256(bytes("ipfs://content3")));
+    }
+
+    function test_Content_CreatePrivate() public {
+        address owner = address(0x123);
+        waveFront.create("Test1", "TEST1", "ipfs://test1", owner);
+        Content content = Content(contentFactory.lastContent());
+
+        address user = address(0x456);
+
+        vm.prank(user);
+        vm.expectRevert("Content__OnlyOwner()");
+        content.create(owner, "ipfs://content1");
+
+        vm.prank(owner);
+        content.create(user, "ipfs://content1");
+
+        vm.prank(owner);
+        content.create(owner, "ipfs://content2");
+
+        vm.prank(owner);
+        content.setOwner(user);
+
+        vm.prank(owner);
+        vm.expectRevert("Content__OnlyOwner()");
+        content.create(owner, "ipfs://content3");
+
+        vm.prank(user);
+        content.create(user, "ipfs://content3");
+    }
+
+
+    function test_Content_CreateMakePublic() public {
+        address owner = address(0x722);
+        waveFront.create("Test1", "TEST1", "ipfs://test1", owner);
+        Content content = Content(contentFactory.lastContent());
+
+        vm.prank(address(0x123));
+        vm.expectRevert("Content__OnlyOwner()");
+        content.create(address(0x123), "ipfs://content1");
+
+        vm.prank(address(0x123));
+        vm.expectRevert("Content__OnlyOwner()");
+        content.setOwner(address(0x123));
+
+        vm.prank(owner);
+        content.setOwner(address(0));
+
+        vm.prank(address(0x123));
+        content.create(address(0x123), "ipfs://content1");
+        uint256 nextTokenId = content.nextTokenId();
+        uint256 price = content.id_Price(1);
+        address creator = content.id_Creator(1);
+
+        assertTrue(nextTokenId == 1);
+        assertTrue(price == 0);
+        assertTrue(creator == address(0x123));
+
+        vm.prank(address(0x456));
+        content.create(address(0x456), "ipfs://content2");
+        nextTokenId = content.nextTokenId();
+        price = content.id_Price(2);
+        creator = content.id_Creator(2);
+
+        assertTrue(nextTokenId == 2);
+        assertTrue(price == 0);
+        assertTrue(creator == address(0x456));
+
+        vm.prank(address(0x789));
+        content.create(address(0x789), "ipfs://content3");
+        nextTokenId = content.nextTokenId();
+        price = content.id_Price(3);
+        creator = content.id_Creator(3);
+
+        assertTrue(nextTokenId == 3);
+        assertTrue(price == 0);
+        assertTrue(creator == address(0x789));
     }
 }

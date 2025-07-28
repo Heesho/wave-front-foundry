@@ -32,7 +32,7 @@ contract TokenTest is Test {
     }
 
     function test_Token_Constructor() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
 
         Token token = Token(tokenFactory.lastToken());
 
@@ -58,7 +58,7 @@ contract TokenTest is Test {
     }
 
     function testRevert_Token_BuyBeforeOpen() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
 
         Token token = Token(tokenFactory.lastToken());
 
@@ -75,8 +75,8 @@ contract TokenTest is Test {
     }
 
     function test_Token_BuyBeforeOpenAsSale(uint256 amount) public {
-        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Token token = Token(tokenFactory.lastToken());
         address sale = saleFactory.lastSale();
 
@@ -90,8 +90,8 @@ contract TokenTest is Test {
     }
 
     function testFuzz_Token_BuyAfterOpenConstant(uint256 amount) public {
-        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -121,8 +121,8 @@ contract TokenTest is Test {
     }
 
     function testFuzz_Token_BuyAfterOpen(uint256 amount) public {
-        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -141,6 +141,8 @@ contract TokenTest is Test {
 
         sale.openMarket();
 
+        assertTrue(token.balanceOf(user2) == 0);
+
         usdc.mint(user2, amount);
 
         vm.prank(user2);
@@ -149,11 +151,13 @@ contract TokenTest is Test {
         uint256 deadline = block.timestamp + 10000;
         vm.prank(user2);
         token.buy(amount, 0, deadline, user2, address(0));
+
+        assertTrue(token.balanceOf(user2) > 0);
     }
 
     function testFuzzRevert_Token_BuyRevertSlippage(uint256 amount) public {
-        vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -184,7 +188,7 @@ contract TokenTest is Test {
     }
 
     function testRevert_Token_BuyZeroInput() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -204,7 +208,7 @@ contract TokenTest is Test {
         sale.openMarket();
 
         vm.prank(user2);
-        vm.expectRevert("Token__ZeroInput()");
+        vm.expectRevert("Token__MinTradeSize()");
         token.buy(0, 0, block.timestamp + 3600, user2, address(0));
     }
 
@@ -212,7 +216,7 @@ contract TokenTest is Test {
         vm.warp(block.timestamp + 100 weeks);
 
         vm.assume(deadline > 0 && deadline < block.timestamp);
-        waveFront.create("Test1", "TEST1", "ipfs://test1");
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -240,4 +244,74 @@ contract TokenTest is Test {
         vm.expectRevert("Token__Expired()");
         token.buy(100e6, 0, deadline, user2, address(0));
     }
+
+    function testFuzz_Token_BuyWithProvider(address provider, uint256 amount) public {
+        vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        Token token = Token(tokenFactory.lastToken());
+        Sale sale = Sale(saleFactory.lastSale());
+
+        address user1 = address(0x123);
+        address user2 = address(0x456);
+
+        usdc.mint(user1, 100e6);
+
+        vm.prank(user1);
+        usdc.approve(address(sale), 100e6);
+
+        vm.prank(user1);
+        sale.contribute(user1, 100e6);
+
+        vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+        sale.openMarket();
+
+        assertTrue(usdc.balanceOf(provider) == 0);
+
+        usdc.mint(user2, amount);
+
+        vm.prank(user2);
+        usdc.approve(address(token), amount);
+
+        uint256 deadline = block.timestamp + 10000;
+        vm.prank(user2);
+        token.buy(amount, 0, deadline, user2, provider);
+
+        assertTrue(usdc.balanceOf(provider) > 0);
+    }
+
+    // function testFuzz_Token_BuyWithProvider(address provider, uint256 amount) public {
+    //     vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
+    //     waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+    //     Token token = Token(tokenFactory.lastToken());
+    //     Sale sale = Sale(saleFactory.lastSale());
+
+    //     address user1 = address(0x123);
+    //     address user2 = address(0x456);
+
+    //     usdc.mint(user1, 100e6);
+
+    //     vm.prank(user1);
+    //     usdc.approve(address(sale), 100e6);
+
+    //     vm.prank(user1);
+    //     sale.contribute(user1, 100e6);
+
+    //     vm.warp(block.timestamp + 2 hours + 60 seconds);
+
+    //     sale.openMarket();
+
+    //     assertTrue(usdc.balanceOf(provider) == 0);
+
+    //     usdc.mint(user2, amount);
+
+    //     vm.prank(user2);
+    //     usdc.approve(address(token), amount);
+
+    //     uint256 deadline = block.timestamp + 10000;
+    //     vm.prank(user2);
+    //     token.buy(amount, 0, deadline, user2, provider);
+
+    //     assertTrue(usdc.balanceOf(provider) > 0);
+    // }
 }
