@@ -399,7 +399,6 @@ contract ContentTest is Test {
         content.create(user, "ipfs://content3");
     }
 
-
     function test_Content_CreateMakePublic() public {
         address owner = address(0x722);
         waveFront.create("Test1", "TEST1", "ipfs://test1", owner);
