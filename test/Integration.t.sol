@@ -195,10 +195,8 @@ contract IntegrationTest is Test {
         data = multicall.getData(address(wft1), user1);
 
         // user1 buys wft1
-        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyQuoteIn(address(wft1), 1000e6, 9000);
-        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyTokenOut(address(wft1), 1000e6, 9000);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyQuoteIn(address(wft1), 1000e6, 9000);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyTokenOut(address(wft1), 1000e6, 9000);
         usdc.mint(user1, 1000e6);
         vm.prank(user1);
         usdc.approve(address(router), 1000e6);
@@ -347,29 +345,25 @@ contract IntegrationTest is Test {
         data = multicall.getData(address(wft1), user2);
 
         // user1 buys wft1
-        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
-        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyTokenOut(address(wft1), 10000e6, 9800);
         usdc.mint(user1, 10000e6);
         vm.prank(user1);
         usdc.approve(address(router), 10000e6);
         vm.prank(user1);
         router.buy(address(wft1), address(0), 10000e6, 0, 0);
         data = multicall.getData(address(wft1), user1);
-        
+
         // user2 buys wft1
-        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
-        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyTokenOut(address(wft1), 10000e6, 9800);
         usdc.mint(user2, 10000e6);
         vm.prank(user2);
         usdc.approve(address(router), 10000e6);
         vm.prank(user2);
         router.buy(address(wft1), address(0), 10000e6, 0, 0);
         data = multicall.getData(address(wft1), user2);
-        
+
         // user3 buys wft1
         vm.assume(user3BuyAmount1 > 1000 && user3BuyAmount1 < 1_000_000_000_000_000_000);
         (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
@@ -431,10 +425,8 @@ contract IntegrationTest is Test {
         assertEq(waveFront.owner(), multisig);
 
         // user1 buys wft1
-        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
-        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyTokenOut(address(wft1), 10000e6, 9800);
         usdc.mint(user1, 10000e6);
         vm.prank(user1);
         usdc.approve(address(router), 10000e6);
@@ -443,10 +435,8 @@ contract IntegrationTest is Test {
         data = multicall.getData(address(wft1), user1);
 
         // user2 buys wft1
-        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
-        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyTokenOut(address(wft1), 10000e6, 9800);
         usdc.mint(user2, 10000e6);
         vm.prank(user2);
         usdc.approve(address(router), 10000e6);
@@ -455,10 +445,8 @@ contract IntegrationTest is Test {
         data = multicall.getData(address(wft1), user2);
 
         // user3 buys wft1
-        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
-        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyTokenOut(address(wft1), 10000e6, 9800);
         usdc.mint(user3, 10000e6);
         vm.prank(user3);
         usdc.approve(address(router), 10000e6);
