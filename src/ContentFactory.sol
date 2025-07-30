@@ -62,7 +62,7 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
         rewarder = IRewarderFactory(rewarderFactory).create(address(this));
     }
 
-    function create(address to, string memory _uri) external nonReentrant returns (uint256 tokenId) {
+    function create(address to, string memory uri) external nonReentrant returns (uint256 tokenId) {
         if (to == address(0)) revert Content__ZeroTo();
         if (owner != address(0) && msg.sender != owner) revert Content__OnlyOwner();
 
@@ -70,9 +70,9 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
         id_Creator[tokenId] = to;
 
         _safeMint(to, tokenId);
-        _setTokenURI(tokenId, _uri);
+        _setTokenURI(tokenId, uri);
 
-        emit Content__Created(msg.sender, to, tokenId, _uri);
+        emit Content__Created(msg.sender, to, tokenId, uri);
     }
 
     function curate(address to, uint256 tokenId) external nonReentrant {

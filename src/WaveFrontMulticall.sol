@@ -65,6 +65,8 @@ interface IRewarder {
 }
 
 interface IContent {
+    function owner() external view returns (address);
+
     function getNextPrice(uint256 tokenId) external view returns (uint256);
 }
 
@@ -74,6 +76,7 @@ contract WaveFrontMulticall {
     uint256 public constant FEE = 100;
     uint256 public constant DIVISOR = 10_000;
     uint256 public constant PRECISION = 1e18;
+    uint256 public constant MIN_TRADE_AMOUNT = 1000;
 
     address public immutable wavefront;
 
@@ -90,6 +93,7 @@ contract WaveFrontMulticall {
         address sale;
         address content;
         address rewarder;
+        address owner;
         string name;
         string symbol;
         string uri;
@@ -148,6 +152,7 @@ contract WaveFrontMulticall {
         data.sale = sale;
         data.content = content;
         data.rewarder = rewarder;
+        data.owner = IContent(content).owner();
 
         data.name = IERC20Metadata(token).name();
         data.symbol = IERC20Metadata(token).symbol();
@@ -228,7 +233,7 @@ contract WaveFrontMulticall {
         view
         returns (uint256 tokenAmtOut, uint256 slippage, uint256 minTokenAmtOut, uint256 autoMinTokenAmtOut)
     {
-        if (quoteRawIn == 0) return (0, 0, 0, 0);
+        if (quoteRawIn < MIN_TRADE_AMOUNT) return (0, 0, 0, 0);
 
         uint256 xr = IToken(token).reserveRealQuoteWad();
         uint256 xv = IToken(token).reserveVirtQuoteWad();
@@ -245,7 +250,7 @@ contract WaveFrontMulticall {
         if (y1 >= y0) return (0, 0, 0, 0);
 
         tokenAmtOut = y0 - y1;
-        slippage = 100 * (PRECISION - (tokenAmtOut.mulDivDown(IToken(token).getMarketPrice(), quoteWadIn)));
+        slippage = PRECISION - (tokenAmtOut.mulDivDown(IToken(token).getMarketPrice(), quoteWadIn));
         minTokenAmtOut =
             quoteWadIn.mulDivDown(PRECISION, IToken(token).getMarketPrice()).mulDivDown(slippageTolerance, DIVISOR);
         autoMinTokenAmtOut = quoteWadIn.mulDivDown(PRECISION, IToken(token).getMarketPrice()).mulDivDown(
@@ -263,9 +268,17 @@ contract WaveFrontMulticall {
         uint256 x0 = xv + xr;
         uint256 y0 = IToken(token).reserveTokenAmt();
 
+        if (tokenAmtOut > y0) return (0, 0, 0, 0);
+
         uint256 quoteWadIn = DIVISOR.mulDivDown(x0.mulDivDown(y0, y0 - tokenAmtOut) - x0, DIVISOR - FEE);
+
+        if (quoteWadIn < MIN_TRADE_AMOUNT) return (0, 0, 0, 0);
+
         quoteRawIn = IToken(token).wadToRaw(quoteWadIn);
-        slippage = 100 * (PRECISION - (tokenAmtOut.mulDivDown(IToken(token).getMarketPrice(), quoteWadIn)));
+
+        if (quoteRawIn == 0) return (0, 0, 0, 0);
+
+        slippage = PRECISION - (tokenAmtOut.mulDivDown(IToken(token).getMarketPrice(), quoteWadIn));
         minTokenAmtOut = tokenAmtOut.mulDivDown(slippageTolerance, DIVISOR);
         autoMinTokenAmtOut =
             tokenAmtOut.mulDivDown((DIVISOR * PRECISION) - ((slippage + PRECISION) * 100), DIVISOR * PRECISION);
@@ -276,7 +289,8 @@ contract WaveFrontMulticall {
         view
         returns (uint256 quoteRawOut, uint256 slippage, uint256 minQuoteRawOut, uint256 autoMinQuoteRawOut)
     {
-        if (tokenAmtIn == 0) return (0, 0, 0, 0);
+        if (tokenAmtIn < MIN_TRADE_AMOUNT) return (0, 0, 0, 0);
+        if (tokenAmtIn > IToken(token).maxSupply()) return (0, 0, 0, 0);
 
         uint256 xr = IToken(token).reserveRealQuoteWad();
         uint256 xv = IToken(token).reserveVirtQuoteWad();
@@ -293,11 +307,11 @@ contract WaveFrontMulticall {
 
         uint256 quoteWadOut = x0 - x1;
         quoteRawOut = IToken(token).wadToRaw(quoteWadOut);
-        slippage = 100
-            * (
-                PRECISION
-                    - quoteWadOut.mulDivDown(PRECISION, tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION))
-            );
+
+        if (quoteRawOut == 0) return (0, 0, 0, 0);
+
+        slippage = PRECISION
+            - (quoteWadOut.mulDivDown(PRECISION, tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION)));
         uint256 minQuoteWadOut =
             tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION).mulDivDown(slippageTolerance, DIVISOR);
         minQuoteRawOut = IToken(token).wadToRaw(minQuoteWadOut);
@@ -318,12 +332,15 @@ contract WaveFrontMulticall {
         uint256 y0 = IToken(token).reserveTokenAmt();
 
         uint256 quoteWadOut = IToken(token).rawToWad(quoteRawOut);
-        tokenAmtIn = DIVISOR.mulDivDown((x0.mulDivDown(y0, x0 - quoteWadOut)) - y0, DIVISOR - FEE);
-        slippage = 100
-            * (
-                PRECISION
-                    - (quoteWadOut.mulDivDown(PRECISION, (tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION))))
-            );
+
+        if (quoteWadOut > xr) return (0, 0, 0, 0);
+
+        tokenAmtIn = DIVISOR.mulDivDown((x0.mulDivUp(y0, x0 - quoteWadOut)) - y0, DIVISOR - FEE);
+
+        if (tokenAmtIn < MIN_TRADE_AMOUNT) return (0, 0, 0, 0);
+
+        slippage = PRECISION
+            - (quoteWadOut.mulDivDown(PRECISION, (tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION))));
         uint256 minQuoteWadIn = quoteWadOut.mulDivDown(slippageTolerance, DIVISOR);
         minQuoteRawOut = IToken(token).wadToRaw(minQuoteWadIn);
         uint256 autoMinQuoteWadIn =

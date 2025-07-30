@@ -868,7 +868,9 @@ contract TokenTest is Test {
         vm.assertTrue(token.getAccountTransferrable(user3) == transferAmt);
     }
 
-    function testFuzzRevert_Token_TransferOverTransferable(uint256 amount, uint256 repayAmt, uint256 transferAmt) public {
+    function testFuzzRevert_Token_TransferOverTransferable(uint256 amount, uint256 repayAmt, uint256 transferAmt)
+        public
+    {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
         waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
         Token token = Token(tokenFactory.lastToken());
@@ -1046,6 +1048,4 @@ contract TokenTest is Test {
         vm.assertTrue(marketPrice > 0);
         vm.assertTrue(floorPrice > 0);
     }
-
-
 }
