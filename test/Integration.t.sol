@@ -44,18 +44,24 @@ contract IntegrationTest is Test {
         uint256 user3ContributeAmount,
         uint256 user1BuyAmount1,
         uint256 user1BuyAmount2,
-        uint256 user1BuyAmount3,
         uint256 user2BuyAmount1,
         uint256 user1SellAmount1,
         uint256 user1BuyAmount4,
         uint256 user1Borrow1,
-        uint256 user1Transfer1
+        uint256 user1Transfer1,
+        uint256 user1Repay1,
+        uint256 user1Transfer2,
+        uint256 user3BuyAmount1,
+        uint256 user1Heal1,
+        uint256 user1Heal2,
+        uint256 user1Burn1
     ) public {
         address user1 = address(0x101);
         address user2 = address(0x102);
         address user3 = address(0x103);
         address user4 = address(0x104);
 
+        address owner = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38;
         address multisig = address(0x105);
         address treasury = address(0x106);
 
@@ -189,16 +195,15 @@ contract IntegrationTest is Test {
         data = multicall.getData(address(wft1), user1);
 
         // user1 buys wft1
-        vm.assume(user1BuyAmount3 > 1000 && user1BuyAmount3 < 1_000_000_000_000_000_000);
         (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyQuoteIn(address(wft1), user1BuyAmount3, 9000);
+            multicall.buyQuoteIn(address(wft1), 1000e6, 9000);
         (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
-            multicall.buyTokenOut(address(wft1), user1BuyAmount3, 9000);
-        usdc.mint(user1, user1BuyAmount3);
+            multicall.buyTokenOut(address(wft1), 1000e6, 9000);
+        usdc.mint(user1, 1000e6);
         vm.prank(user1);
-        usdc.approve(address(router), user1BuyAmount3);
+        usdc.approve(address(router), 1000e6);
         vm.prank(user1);
-        router.buy(address(wft1), address(0), user1BuyAmount3, 0, 0);
+        router.buy(address(wft1), address(0), 1000e6, 0, 0);
         data = multicall.getData(address(wft1), user1);
 
         // user2 buys wft1
@@ -294,5 +299,289 @@ contract IntegrationTest is Test {
         wft1.transfer(user2, user1Transfer1);
         data = multicall.getData(address(wft1), user1);
         data = multicall.getData(address(wft1), user2);
+
+        // user 1 repays some debt
+        uint256 debt = wft1.account_DebtRaw(user1);
+        vm.assume(user1Repay1 > 0 && user1Repay1 <= debt);
+        vm.prank(user1);
+        usdc.approve(address(wft1), user1Repay1);
+        vm.prank(user1);
+        wft1.repay(user1, user1Repay1);
+        data = multicall.getData(address(wft1), user1);
+
+        // user1 transfers some wft1 to user2
+        maxTransferrable = wft1.getAccountTransferrable(user1);
+        vm.assume(user1Transfer2 > 0 && user1Transfer2 <= maxTransferrable);
+        vm.prank(user1);
+        wft1.transfer(user2, user1Transfer2);
+        data = multicall.getData(address(wft1), user1);
+        data = multicall.getData(address(wft1), user2);
+
+        // user 1 repays all debt
+        debt = wft1.account_DebtRaw(user1);
+        if (debt > 0) {
+            vm.prank(user1);
+            usdc.approve(address(wft1), debt);
+            vm.prank(user1);
+            wft1.repay(user1, debt);
+            data = multicall.getData(address(wft1), user1);
+        }
+
+        // user1 transfers all wft1 to user2
+        uint256 wft1Balance = wft1.balanceOf(user1);
+        vm.prank(user1);
+        wft1.transfer(user2, wft1Balance);
+        data = multicall.getData(address(wft1), user1);
+        data = multicall.getData(address(wft1), user2);
+
+        // user2 sells all wft1
+        data = multicall.getData(address(wft1), user2);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.sellTokenIn(address(wft1), data.accountTokenBalance, 9800);
+        (quoteRawOut, slippage, minQuoteRawOut, autoMinQuoteRawOut) =
+            multicall.sellQuoteOut(address(wft1), data.accountTokenBalance / 1e12, 9800);
+        vm.prank(user2);
+        wft1.approve(address(router), data.accountTokenBalance);
+        vm.prank(user2);
+        router.sell(address(wft1), address(0), data.accountTokenBalance, 0, 0);
+        data = multicall.getData(address(wft1), user2);
+
+        // user1 buys wft1
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        usdc.mint(user1, 10000e6);
+        vm.prank(user1);
+        usdc.approve(address(router), 10000e6);
+        vm.prank(user1);
+        router.buy(address(wft1), address(0), 10000e6, 0, 0);
+        data = multicall.getData(address(wft1), user1);
+        
+        // user2 buys wft1
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        usdc.mint(user2, 10000e6);
+        vm.prank(user2);
+        usdc.approve(address(router), 10000e6);
+        vm.prank(user2);
+        router.buy(address(wft1), address(0), 10000e6, 0, 0);
+        data = multicall.getData(address(wft1), user2);
+        
+        // user3 buys wft1
+        vm.assume(user3BuyAmount1 > 1000 && user3BuyAmount1 < 1_000_000_000_000_000_000);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyQuoteIn(address(wft1), user3BuyAmount1, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyTokenOut(address(wft1), user3BuyAmount1, 9800);
+        usdc.mint(user3, user3BuyAmount1);
+        vm.prank(user3);
+        usdc.approve(address(router), user3BuyAmount1);
+        vm.prank(user3);
+        router.buy(address(wft1), address(0), user3BuyAmount1, 0, 0);
+        data = multicall.getData(address(wft1), user3);
+
+        // user1 heals with usdc
+        vm.assume(user1Heal1 > 0 && user1Heal1 < 1_000_000_000_000_000_000);
+        usdc.mint(user1, user1Heal1);
+        vm.prank(user1);
+        usdc.approve(address(wft1), user1Heal1);
+        vm.prank(user1);
+        wft1.heal(user1Heal1);
+        data = multicall.getData(address(wft1), user1);
+
+        // user3 sells all wft1
+        data = multicall.getData(address(wft1), user3);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.sellTokenIn(address(wft1), data.accountTokenBalance, 9800);
+        (quoteRawOut, slippage, minQuoteRawOut, autoMinQuoteRawOut) =
+            multicall.sellQuoteOut(address(wft1), data.accountTokenBalance / 1e12, 9800);
+        vm.prank(user3);
+        wft1.approve(address(router), data.accountTokenBalance);
+        vm.prank(user3);
+        router.sell(address(wft1), address(0), data.accountTokenBalance, 0, 0);
+        data = multicall.getData(address(wft1), user3);
+
+        // user1 heals with usdc
+        vm.assume(user1Heal2 > 0 && user1Heal2 < 1_000_000_000_000_000_000);
+        usdc.mint(user1, user1Heal2);
+        vm.prank(user1);
+        usdc.approve(address(wft1), user1Heal2);
+        vm.prank(user1);
+        wft1.heal(user1Heal2);
+        data = multicall.getData(address(wft1), user1);
+
+        // user1 burns wft1
+        uint256 balanceWft1 = wft1.balanceOf(user1);
+        vm.assume(user1Burn1 > 0 && user1Burn1 <= balanceWft1);
+        vm.prank(user1);
+        wft1.burn(user1Burn1);
+        data = multicall.getData(address(wft1), user1);
+
+        // set wavefront treasury to treasury
+        vm.prank(owner);
+        waveFront.setTreasury(treasury);
+        assertEq(waveFront.treasury(), treasury);
+
+        // transfer ownership to multisig
+        vm.prank(owner);
+        waveFront.transferOwnership(multisig);
+        assertEq(waveFront.owner(), multisig);
+
+        // user1 buys wft1
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        usdc.mint(user1, 10000e6);
+        vm.prank(user1);
+        usdc.approve(address(router), 10000e6);
+        vm.prank(user1);
+        router.buy(address(wft1), user2, 10000e6, 0, 0);
+        data = multicall.getData(address(wft1), user1);
+
+        // user2 buys wft1
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        usdc.mint(user2, 10000e6);
+        vm.prank(user2);
+        usdc.approve(address(router), 10000e6);
+        vm.prank(user2);
+        router.buy(address(wft1), user3, 10000e6, 0, 0);
+        data = multicall.getData(address(wft1), user2);
+
+        // user3 buys wft1
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyQuoteIn(address(wft1), 10000e6, 9800);
+        (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.buyTokenOut(address(wft1), 10000e6, 9800);
+        usdc.mint(user3, 10000e6);
+        vm.prank(user3);
+        usdc.approve(address(router), 10000e6);
+        vm.prank(user3);
+        router.buy(address(wft1), user1, 10000e6, 0, 0);
+        data = multicall.getData(address(wft1), user3);
+
+        // user1 sells all wft1
+        data = multicall.getData(address(wft1), user1);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.sellTokenIn(address(wft1), data.accountTokenBalance, 9800);
+        (quoteRawOut, slippage, minQuoteRawOut, autoMinQuoteRawOut) =
+            multicall.sellQuoteOut(address(wft1), data.accountTokenBalance / 1e12, 9800);
+        vm.prank(user1);
+        wft1.approve(address(router), data.accountTokenBalance);
+        vm.prank(user1);
+        router.sell(address(wft1), user2, data.accountTokenBalance, 0, 0);
+        data = multicall.getData(address(wft1), user1);
+
+        // user2 sells all wft1
+        data = multicall.getData(address(wft1), user2);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.sellTokenIn(address(wft1), data.accountTokenBalance, 9800);
+        (quoteRawOut, slippage, minQuoteRawOut, autoMinQuoteRawOut) =
+            multicall.sellQuoteOut(address(wft1), data.accountTokenBalance / 1e12, 9800);
+        vm.prank(user2);
+        wft1.approve(address(router), data.accountTokenBalance);
+        vm.prank(user2);
+        router.sell(address(wft1), user3, data.accountTokenBalance, 0, 0);
+        data = multicall.getData(address(wft1), user2);
+
+        // user3 sells all wft1
+        data = multicall.getData(address(wft1), user3);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.sellTokenIn(address(wft1), data.accountTokenBalance, 9800);
+        (quoteRawOut, slippage, minQuoteRawOut, autoMinQuoteRawOut) =
+            multicall.sellQuoteOut(address(wft1), data.accountTokenBalance / 1e12, 9800);
+        vm.prank(user3);
+        wft1.approve(address(router), data.accountTokenBalance);
+        vm.prank(user3);
+        router.sell(address(wft1), treasury, data.accountTokenBalance, 0, 0);
+        data = multicall.getData(address(wft1), user3);
+
+        // treasury sells all wft1
+        data = multicall.getData(address(wft1), treasury);
+        (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
+            multicall.sellTokenIn(address(wft1), data.accountTokenBalance, 9800);
+        (quoteRawOut, slippage, minQuoteRawOut, autoMinQuoteRawOut) =
+            multicall.sellQuoteOut(address(wft1), data.accountTokenBalance / 1e12, 9800);
+        vm.prank(treasury);
+        wft1.approve(address(router), data.accountTokenBalance);
+        vm.prank(treasury);
+        router.sell(address(wft1), address(0), data.accountTokenBalance, 0, 0);
+        data = multicall.getData(address(wft1), treasury);
+
+        // user1 creates content
+        vm.prank(user1);
+        router.createContent(address(wft1), "https://ipfs.com/1");
+        data = multicall.getData(address(wft1), user1);
+        vm.assertTrue(multicall.contentPrice(address(wft1), 1) == 1e6);
+
+        // user2 curates content
+        uint256 contentPrice = multicall.contentPrice(address(wft1), 1);
+        usdc.mint(user2, contentPrice);
+        vm.prank(user2);
+        usdc.approve(address(router), contentPrice);
+        vm.prank(user2);
+        router.curateContent(address(wft1), 1);
+        data = multicall.getData(address(wft1), user2);
+        vm.warp(block.timestamp + 1 days);
+
+        // user3 curates content
+        contentPrice = multicall.contentPrice(address(wft1), 1);
+        usdc.mint(user3, contentPrice);
+        vm.prank(user3);
+        usdc.approve(address(router), contentPrice);
+        vm.prank(user3);
+        router.curateContent(address(wft1), 1);
+        data = multicall.getData(address(wft1), user3);
+        vm.warp(block.timestamp + 1 days);
+
+        //user1 curates content
+        contentPrice = multicall.contentPrice(address(wft1), 1);
+        usdc.mint(user1, contentPrice);
+        vm.prank(user1);
+        usdc.approve(address(router), contentPrice);
+        vm.prank(user1);
+        router.curateContent(address(wft1), 1);
+        data = multicall.getData(address(wft1), user1);
+        vm.warp(block.timestamp + 1 days);
+
+        // user1 claims rewards
+        vm.prank(user1);
+        router.getContentReward(address(wft1));
+        data = multicall.getData(address(wft1), user1);
+
+        // user1 claims rewards
+        vm.prank(user1);
+        router.getContentReward(address(wft1));
+        data = multicall.getData(address(wft1), user1);
+
+        // user2 claims rewards
+        vm.prank(user2);
+        router.getContentReward(address(wft1));
+        data = multicall.getData(address(wft1), user2);
+
+        // user3 claims rewards
+        vm.prank(user3);
+        router.getContentReward(address(wft1));
+        data = multicall.getData(address(wft1), user3);
+
+        // user4 notifies reward amount
+        vm.warp(block.timestamp + 7 days);
+        usdc.mint(user4, 10000e6);
+        vm.prank(user4);
+        usdc.approve(address(router), 10000e6);
+        vm.prank(user4);
+        router.notifyContentRewardAmount(address(wft1), address(usdc), 10000e6);
+        data = multicall.getData(address(wft1), user4);
+
+        // owner withdraws stuck tokens
+        usdc.mint(address(router), 1e6);
+        vm.prank(owner);
+        router.withdrawStuckTokens(address(usdc), multisig);
     }
 }
