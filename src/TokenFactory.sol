@@ -150,8 +150,8 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         uint256 netRaw = quoteRawIn - feeRaw;
         uint256 netWad = rawToWad(netRaw);
 
-        uint256 x0 = reserveVirtQuoteWad + reserveRealQuoteWad;
         uint256 y0 = reserveTokenAmt;
+        uint256 x0 = reserveVirtQuoteWad + reserveRealQuoteWad;
         uint256 x1 = x0 + netWad;
         if (x1 == 0) revert Token__DivideByZero();
 
@@ -159,7 +159,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         tokenAmtOut = y0 - y1;
         if (tokenAmtOut < minTokenAmtOut) revert Token__Slippage();
 
-        reserveRealQuoteWad += netWad;
+        reserveRealQuoteWad = x1 - reserveVirtQuoteWad;
         reserveTokenAmt = y1;
 
         emit Token__Swap(msg.sender, quoteRawIn, 0, 0, tokenAmtOut, to);
