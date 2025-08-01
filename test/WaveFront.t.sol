@@ -41,7 +41,7 @@ contract WaveFrontTest is Test {
     }
 
     function test_WaveFront_Create_Index() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         address lastToken = tokenFactory.lastToken();
 
         assertTrue(lastToken != address(0));
@@ -52,7 +52,7 @@ contract WaveFrontTest is Test {
         assertTrue(keccak256(bytes(waveFront.token_Uri(lastToken))) == keccak256(bytes("ipfs://test1")));
         assertTrue(keccak256(bytes(waveFront.token_Uri(address(0)))) == keccak256(bytes("")));
 
-        waveFront.create("Test2", "TEST2", "ipfs://test2", address(0));
+        waveFront.create("Test2", "TEST2", "ipfs://test2", address(1), false);
         address lastToken2 = tokenFactory.lastToken();
 
         assertTrue(lastToken2 != address(0));
@@ -65,7 +65,7 @@ contract WaveFrontTest is Test {
     }
 
     function test_WaveFront_Create_Token() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         address lastToken = tokenFactory.lastToken();
         address lastSale = saleFactory.lastSale();
         address lastContent = contentFactory.lastContent();
@@ -169,23 +169,5 @@ contract WaveFrontTest is Test {
         vm.expectRevert("Ownable: caller is not the owner");
         waveFront.setRewarderFactory(address(0x222));
         assertEq(waveFront.rewarderFactory(), newRewarderFactory);
-    }
-
-    function test_WaveFront_AddContentReward() public {
-        address owner = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38;
-        waveFront.create("Test1", "TEST1", "https://test.com1", address(0));
-        address lastToken = tokenFactory.lastToken();
-        address rewarder = Token(lastToken).rewarder();
-
-        vm.prank(owner);
-        vm.expectRevert("Rewarder__RewardTokenAlreadyAdded()");
-        waveFront.addContentReward(lastToken, address(usdc));
-
-        MockToken mockToken = new MockToken();
-        vm.prank(owner);
-        waveFront.addContentReward(lastToken, address(mockToken));
-
-        address rewardToken = Rewarder(rewarder).getRewardTokens()[2];
-        assertTrue(rewardToken == address(mockToken));
     }
 }

@@ -8,7 +8,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 interface IWaveFront {
     function quote() external view returns (address);
 
-    function create(string calldata name, string calldata symbol, string calldata uri, address owner)
+    function create(string calldata name, string calldata symbol, string calldata uri, address owner, bool isPrivate)
         external
         returns (address token);
 }
@@ -75,7 +75,7 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
     mapping(address => address) public account_Affiliate;
 
     event WaveFrontRouter__TokenCreated(
-        string name, string symbol, string uri, address indexed token, address indexed creator
+        string name, string symbol, string uri, address indexed token, address indexed creator, bool isPrivate
     );
     event WaveFrontRouter__Buy(
         address indexed token,
@@ -113,8 +113,8 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
         nonReentrant
         returns (address token)
     {
-        token = IWaveFront(wavefront).create(name, symbol, uri, isPrivate ? msg.sender : address(0));
-        emit WaveFrontRouter__TokenCreated(name, symbol, uri, token, msg.sender);
+        token = IWaveFront(wavefront).create(name, symbol, uri, msg.sender, isPrivate);
+        emit WaveFrontRouter__TokenCreated(name, symbol, uri, token, msg.sender, isPrivate);
     }
 
     function buy(

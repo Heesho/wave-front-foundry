@@ -21,8 +21,9 @@ interface IContentFactory {
         string memory symbol,
         address _token,
         address _quote,
-        address _owner,
-        address rewarderFactory
+        address rewarderFactory,
+        address owner,
+        bool isPrivate
     ) external returns (address, address);
 }
 
@@ -112,10 +113,11 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         address _quote,
         uint256 _initialSupply,
         uint256 _virtQuoteRaw,
-        address owner,
         address saleFactory,
         address contentFactory,
-        address rewarderFactory
+        address rewarderFactory,
+        address owner,
+        bool isPrivate
     ) ERC20(name, symbol) ERC20Permit(name) {
         wavefront = _wavefront;
         quote = _quote;
@@ -130,8 +132,9 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         reserveVirtQuoteWad = rawToWad(_virtQuoteRaw);
 
         sale = ISaleFactory(saleFactory).create(address(this), _quote);
-        (content, rewarder) =
-            IContentFactory(contentFactory).create(name, symbol, address(this), _quote, owner, rewarderFactory);
+        (content, rewarder) = IContentFactory(contentFactory).create(
+            name, symbol, address(this), _quote, rewarderFactory, owner, isPrivate
+        );
     }
 
     function buy(uint256 quoteRawIn, uint256 minTokenAmtOut, uint256 deadline, address to, address provider)
@@ -407,10 +410,11 @@ contract TokenFactory {
         address quote,
         uint256 initialSupply,
         uint256 reserveVirtQuoteRaw,
-        address owner,
         address saleFactory,
         address contentFactory,
-        address rewarderFactory
+        address rewarderFactory,
+        address owner,
+        bool isPrivate
     ) external returns (address token) {
         token = address(
             new Token(
@@ -420,10 +424,11 @@ contract TokenFactory {
                 quote,
                 initialSupply,
                 reserveVirtQuoteRaw,
-                owner,
                 saleFactory,
                 contentFactory,
-                rewarderFactory
+                rewarderFactory,
+                owner,
+                isPrivate
             )
         );
         lastToken = token;

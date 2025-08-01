@@ -5,6 +5,7 @@ import {ERC721, ERC721Enumerable, IERC721} from "@openzeppelin/contracts/token/E
 import {ERC721URIStorage} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IRewarderFactory {
     function create(address content) external returns (address);
@@ -20,19 +21,23 @@ interface IRewarder {
     function deposit(address account, uint256 amount) external;
 
     function withdraw(address account, uint256 amount) external;
+
+    function addReward(address token) external;
 }
 
 interface IToken {
     function heal(uint256 amount) external;
 }
 
-contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard {
+contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
     address public immutable rewarder;
     address public immutable token;
     address public immutable quote;
-    address public owner;
+
+    bool public isPrivate;
+    mapping(address => bool) public account_IsCreator;
 
     uint256 public nextTokenId;
 
@@ -40,31 +45,35 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
     mapping(uint256 => address) public id_Creator;
 
     error Content__ZeroTo();
-    error Content__OnlyOwner();
+    error Content__NotCreator();
     error Content__InvalidTokenId();
     error Content__TransferDisabled();
 
     event Content__Created(address indexed who, address indexed to, uint256 indexed tokenId, string uri);
     event Content__Curated(address indexed who, address indexed to, uint256 indexed tokenId, uint256 price);
-    event Content__OwnerSet(address indexed owner);
+    event Content__IsPrivateSet(bool isPrivate);
+    event Content__CreatorsSet(address indexed account, bool isCreator);
+    event Content__RewardAdded(address indexed rewardToken);
 
     constructor(
         string memory name,
         string memory symbol,
         address _token,
         address _quote,
-        address _owner,
-        address rewarderFactory
+        address rewarderFactory,
+        bool _isPrivate
     ) ERC721(name, symbol) {
         token = _token;
         quote = _quote;
-        owner = _owner;
+        isPrivate = _isPrivate;
         rewarder = IRewarderFactory(rewarderFactory).create(address(this));
+        IRewarder(rewarder).addReward(quote);
+        IRewarder(rewarder).addReward(token);
     }
 
     function create(address to, string memory uri) external nonReentrant returns (uint256 tokenId) {
         if (to == address(0)) revert Content__ZeroTo();
-        if (owner != address(0) && msg.sender != owner) revert Content__OnlyOwner();
+        if (isPrivate && !account_IsCreator[msg.sender]) revert Content__NotCreator();
 
         tokenId = ++nextTokenId;
         id_Creator[tokenId] = to;
@@ -144,10 +153,21 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard 
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
 
-    function setOwner(address _owner) external {
-        if (msg.sender != owner) revert Content__OnlyOwner();
-        owner = _owner;
-        emit Content__OwnerSet(_owner);
+    function setIsPrivate(bool _isPrivate) external onlyOwner {
+        isPrivate = _isPrivate;
+        emit Content__IsPrivateSet(_isPrivate);
+    }
+
+    function setCreators(address[] calldata accounts, bool isCreator) external onlyOwner {
+        for (uint256 i = 0; i < accounts.length; i++) {
+            account_IsCreator[accounts[i]] = isCreator;
+            emit Content__CreatorsSet(accounts[i], isCreator);
+        }
+    }
+
+    function addReward(address rewardToken) external onlyOwner {
+        IRewarder(rewarder).addReward(rewardToken);
+        emit Content__RewardAdded(rewardToken);
     }
 
     function supportsInterface(bytes4 interfaceId)
@@ -182,11 +202,13 @@ contract ContentFactory {
         string memory symbol,
         address token,
         address quote,
+        address rewarderFactory,
         address owner,
-        address rewarderFactory
+        bool isPrivate
     ) external returns (address, address) {
-        Content content = new Content(name, symbol, token, quote, owner, rewarderFactory);
+        Content content = new Content(name, symbol, token, quote, rewarderFactory, isPrivate);
         lastContent = address(content);
+        content.transferOwnership(owner);
         emit ContentFactory__Created(lastContent);
         return (address(content), content.rewarder());
     }

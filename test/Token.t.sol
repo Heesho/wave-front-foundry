@@ -32,7 +32,7 @@ contract TokenTest is Test {
     }
 
     function test_Token_Constructor() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
 
         Token token = Token(tokenFactory.lastToken());
 
@@ -58,7 +58,7 @@ contract TokenTest is Test {
     }
 
     function testRevert_Token_BuyBeforeOpen() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
 
         Token token = Token(tokenFactory.lastToken());
 
@@ -76,7 +76,7 @@ contract TokenTest is Test {
 
     function test_Token_BuyBeforeOpenAsSale(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         address sale = saleFactory.lastSale();
 
@@ -91,7 +91,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_BuyAfterOpenConstant(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -122,7 +122,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_BuyAfterOpen(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -157,7 +157,7 @@ contract TokenTest is Test {
 
     function testFuzzRevert_Token_BuyRevertSlippage(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -188,7 +188,7 @@ contract TokenTest is Test {
     }
 
     function testRevert_Token_BuyZeroInput() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -216,7 +216,7 @@ contract TokenTest is Test {
         vm.warp(block.timestamp + 100 weeks);
 
         vm.assume(deadline > 0 && deadline < block.timestamp);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -248,7 +248,7 @@ contract TokenTest is Test {
     function testFuzz_Token_BuyWithProvider(address provider, uint256 amount) public {
         vm.assume(provider != address(0));
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -283,7 +283,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_Sell(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -320,7 +320,7 @@ contract TokenTest is Test {
     function testFuzz_Token_SellWithProvider(address provider, uint256 amount) public {
         vm.assume(provider != address(0));
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -357,7 +357,7 @@ contract TokenTest is Test {
     function testFuzzRevert_Token_SellBelowTradeMin(uint256 amount, uint256 sellAmount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
         vm.assume(sellAmount < 1000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -392,7 +392,7 @@ contract TokenTest is Test {
 
     function testRevertFuzz_Token_SellSlippage(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -430,7 +430,7 @@ contract TokenTest is Test {
     function testRevertFuzz_Token_SellExpired(uint256 deadline) public {
         vm.warp(block.timestamp + 100 weeks);
         vm.assume(deadline > 0 && deadline < block.timestamp);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -466,7 +466,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_BorrowMax(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -508,7 +508,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_Borrow(uint256 amount, uint256 creditAmt) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -552,7 +552,7 @@ contract TokenTest is Test {
 
     function testFuzzRevert_Token_BorrowOverCredit(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -595,7 +595,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_RepayMax(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -646,7 +646,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_Repay(uint256 amount, uint256 repayAmt) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -698,7 +698,7 @@ contract TokenTest is Test {
     }
 
     function testRevert_Token_RepayZeroAmount() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -747,7 +747,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_TransferMax(uint256 amount, uint256 repayAmt) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -809,7 +809,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_Transfer(uint256 amount, uint256 repayAmt, uint256 transferAmt) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -872,7 +872,7 @@ contract TokenTest is Test {
         public
     {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -933,7 +933,7 @@ contract TokenTest is Test {
     function testFuzz_Token_Heal(uint256 buyAmt, uint256 healAmt) public {
         vm.assume(buyAmt > 1000 && buyAmt < 1_000_000_000_000_000_000);
         vm.assume(healAmt > 0 && healAmt < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -972,7 +972,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_Burn(uint256 buyAmt, uint256 burnAmt) public {
         vm.assume(buyAmt > 1000 && buyAmt < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -1008,7 +1008,7 @@ contract TokenTest is Test {
 
     function testFuzz_Token_Prices(uint256 buyAmt, uint256 burnAmt) public {
         vm.assume(buyAmt > 1000 && buyAmt < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
 

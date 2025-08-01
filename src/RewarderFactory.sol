@@ -5,14 +5,6 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-interface IContent {
-    function token() external view returns (address);
-}
-
-interface IToken {
-    function wavefront() external view returns (address);
-}
-
 contract Rewarder is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -38,7 +30,6 @@ contract Rewarder is ReentrancyGuard {
     }
 
     error Rewarder__NotContent();
-    error Rewarder__NotWaveFront();
     error Rewarder__RewardSmallerThanDuration();
     error Rewarder__RewardSmallerThanLeft();
     error Rewarder__NotRewardToken();
@@ -128,10 +119,7 @@ contract Rewarder is ReentrancyGuard {
         emit Rewarder__Withdrawn(account, amount);
     }
 
-    function addReward(address token) external {
-        if (msg.sender != IToken(IContent(content).token()).wavefront()) {
-            revert Rewarder__NotWaveFront();
-        }
+    function addReward(address token) external onlyContent {
         if (token_IsReward[token]) revert Rewarder__RewardTokenAlreadyAdded();
         token_IsReward[token] = true;
         rewardTokens.push(token);

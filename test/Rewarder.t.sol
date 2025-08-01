@@ -35,7 +35,7 @@ contract RewarderTest is Test {
     }
 
     function test_Rewarder_Constructor() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Token token = Token(tokenFactory.lastToken());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
@@ -51,16 +51,17 @@ contract RewarderTest is Test {
     }
 
     function testRevert_Rewarder_AddRewardToken() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
+        Content content = Content(contentFactory.lastContent());
 
-        vm.expectRevert("Rewarder__NotWaveFront()");
+        vm.expectRevert("Rewarder__NotContent()");
         rewarder.addReward(address(mockToken));
 
         assertTrue(rewarder.token_IsReward(address(mockToken)) == false);
         assertTrue(rewarder.getRewardTokens().length == 2);
 
-        vm.prank(address(waveFront));
+        vm.prank(address(content));
         vm.expectRevert("Rewarder__RewardTokenAlreadyAdded()");
         rewarder.addReward(address(usdc));
 
@@ -68,10 +69,11 @@ contract RewarderTest is Test {
     }
 
     function test_Rewarder_AddRewardToken() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
+        Content content = Content(contentFactory.lastContent());
 
-        vm.prank(address(waveFront));
+        vm.prank(address(content));
         rewarder.addReward(address(mockToken));
 
         assertTrue(rewarder.getRewardTokens().length == 3);
@@ -80,7 +82,7 @@ contract RewarderTest is Test {
     }
 
     function test_Rewarder_GetRewardNoBalance() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
@@ -91,7 +93,7 @@ contract RewarderTest is Test {
     }
 
     function testRevert_Rewarder_NotifyRewardAmountLessThanDuration() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
         address user1 = address(0x123);
@@ -127,7 +129,7 @@ contract RewarderTest is Test {
     }
 
     function testRevert_Rewarder_NotifyRewardAmountNotRewardToken() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
         address user1 = address(0x123);
@@ -149,7 +151,7 @@ contract RewarderTest is Test {
     }
 
     function testRevert_Rewarder_NotifyRewardAmountLessThanLeft() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
         address user1 = address(0x123);
@@ -177,7 +179,7 @@ contract RewarderTest is Test {
     }
 
     function test_Rewarder_NotifyRewardAmountZeroTotalSupply() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
         address user1 = address(0x123);
@@ -202,7 +204,7 @@ contract RewarderTest is Test {
     function testFuzz_Rewarder_NotifyRewardAmount(uint256 amount) public {
         vm.assume(amount > 604800 && amount < 1_000_000_000_000_000_000);
 
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
@@ -247,7 +249,7 @@ contract RewarderTest is Test {
     }
 
     function testRevert_Rewarder_Deposit() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
@@ -272,7 +274,7 @@ contract RewarderTest is Test {
     function testFuzz_Rewarder_Deposit(uint256 amount) public {
         vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
 
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
@@ -289,7 +291,7 @@ contract RewarderTest is Test {
     function testFuzz_Rewarder_Withdraw(uint256 amount) public {
         vm.assume(amount > 0 && amount < 1_000_000_000_000_000_000);
 
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
@@ -312,7 +314,7 @@ contract RewarderTest is Test {
     function testFuzz_Rewarder_GetReward(uint256 amount) public {
         vm.assume(amount > 604800 && amount < 1_000_000_000_000_000_000);
 
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
@@ -365,7 +367,7 @@ contract RewarderTest is Test {
     }
 
     function test_Rewarder_Coverage() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(0));
+        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
