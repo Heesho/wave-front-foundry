@@ -146,21 +146,8 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     {
         if (!open && msg.sender != sale) revert Token__MarketClosed();
 
-        uint256 feeRaw = (quoteRawIn * FEE) / DIVISOR;
-        uint256 netRaw = quoteRawIn - feeRaw;
-        uint256 netWad = rawToWad(netRaw);
-
-        uint256 y0 = reserveTokenAmt;
-        uint256 x0 = reserveVirtQuoteWad + reserveRealQuoteWad;
-        uint256 x1 = x0 + netWad;
-        if (x1 == 0) revert Token__DivideByZero();
-
-        uint256 y1 = x0.mulWadUp(y0).divWadUp(x1);
-        tokenAmtOut = y0 - y1;
-        if (tokenAmtOut < minTokenAmtOut) revert Token__Slippage();
-
-        reserveRealQuoteWad = x1 - reserveVirtQuoteWad;
-        reserveTokenAmt = y1;
+        uint256 feeRaw;
+        (tokenAmtOut, feeRaw) = _processBuy(quoteRawIn, minTokenAmtOut);
 
         emit Token__Swap(msg.sender, quoteRawIn, 0, 0, tokenAmtOut, to);
         IERC20(quote).safeTransferFrom(msg.sender, address(this), quoteRawIn);
@@ -178,23 +165,8 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         notExpired(deadline)
         returns (uint256 quoteRawOut)
     {
-        uint256 feeAmt = (tokenAmtIn * FEE) / DIVISOR;
-        uint256 netAmt = tokenAmtIn - feeAmt;
-
-        uint256 x0 = reserveVirtQuoteWad + reserveRealQuoteWad;
-        uint256 y0 = reserveTokenAmt;
-        uint256 y1 = y0 + netAmt;
-        if (y1 == 0) revert Token__DivideByZero();
-
-        uint256 x1 = x0.mulWadUp(y0).divWadUp(y1);
-        uint256 quoteWadOut = x0 - x1;
-        quoteRawOut = wadToRaw(quoteWadOut);
-
-        if (quoteRawOut < minQuoteRawOut) revert Token__Slippage();
-        if (x1 < reserveVirtQuoteWad) revert Token__ReserveUnderflow();
-
-        reserveRealQuoteWad = x1 - reserveVirtQuoteWad;
-        reserveTokenAmt = y1;
+        uint256 feeAmt;
+        (quoteRawOut, feeAmt) = _processSell(tokenAmtIn, minQuoteRawOut);
 
         emit Token__Swap(msg.sender, 0, tokenAmtIn, quoteRawOut, 0, to);
         _burn(msg.sender, tokenAmtIn);
@@ -248,6 +220,50 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     function wadToRaw(uint256 wad) public view returns (uint256) {
         return wad / quoteScale;
+    }
+
+    function _processBuy(uint256 quoteRawIn, uint256 minTokenAmtOut)
+        internal
+        returns (uint256 tokenAmtOut, uint256 feeRaw)
+    {
+        feeRaw = (quoteRawIn * FEE) / DIVISOR;
+        uint256 netRaw = quoteRawIn - feeRaw;
+        uint256 netWad = rawToWad(netRaw);
+
+        uint256 y0 = reserveTokenAmt;
+        uint256 x0 = reserveVirtQuoteWad + reserveRealQuoteWad;
+        uint256 x1 = x0 + netWad;
+        if (x1 == 0) revert Token__DivideByZero();
+
+        uint256 y1 = x0.mulWadUp(y0).divWadUp(x1);
+        tokenAmtOut = y0 - y1;
+        if (tokenAmtOut < minTokenAmtOut) revert Token__Slippage();
+
+        reserveRealQuoteWad = x1 - reserveVirtQuoteWad;
+        reserveTokenAmt = y1;
+    }
+
+    function _processSell(uint256 tokenAmtIn, uint256 minQuoteRawOut)
+        internal
+        returns (uint256 quoteRawOut, uint256 feeAmt)
+    {
+        feeAmt = (tokenAmtIn * FEE) / DIVISOR;
+        uint256 netAmt = tokenAmtIn - feeAmt;
+
+        uint256 x0 = reserveVirtQuoteWad + reserveRealQuoteWad;
+        uint256 y0 = reserveTokenAmt;
+        uint256 y1 = y0 + netAmt;
+        if (y1 == 0) revert Token__DivideByZero();
+
+        uint256 x1 = x0.mulWadUp(y0).divWadUp(y1);
+        uint256 quoteWadOut = x0 - x1;
+        quoteRawOut = wadToRaw(quoteWadOut);
+
+        if (quoteRawOut < minQuoteRawOut) revert Token__Slippage();
+        if (x1 < reserveVirtQuoteWad) revert Token__ReserveUnderflow();
+
+        reserveRealQuoteWad = x1 - reserveVirtQuoteWad;
+        reserveTokenAmt = y1;
     }
 
     function _processBuyFees(uint256 quoteRaw, address provider) internal returns (uint256 remainingRaw) {
