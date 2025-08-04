@@ -36,6 +36,8 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard,
     address public immutable token;
     address public immutable quote;
 
+    string public coverUri;
+
     bool public isPrivate;
     mapping(address => bool) public account_IsCreator;
 
@@ -51,6 +53,7 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard,
 
     event Content__Created(address indexed who, address indexed to, uint256 indexed tokenId, string uri);
     event Content__Curated(address indexed who, address indexed to, uint256 indexed tokenId, uint256 price);
+    event Content__CoverUriSet(string coverUri);
     event Content__IsPrivateSet(bool isPrivate);
     event Content__CreatorsSet(address indexed account, bool isCreator);
     event Content__RewardAdded(address indexed rewardToken);
@@ -58,11 +61,13 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard,
     constructor(
         string memory name,
         string memory symbol,
+        string memory _coverUri,
         address _token,
         address _quote,
         address rewarderFactory,
         bool _isPrivate
     ) ERC721(name, symbol) {
+        coverUri = _coverUri;
         token = _token;
         quote = _quote;
         isPrivate = _isPrivate;
@@ -153,6 +158,11 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard,
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
 
+    function setCoverUri(string memory _coverUri) external onlyOwner {
+        coverUri = _coverUri;
+        emit Content__CoverUriSet(_coverUri);
+    }
+
     function setIsPrivate(bool _isPrivate) external onlyOwner {
         isPrivate = _isPrivate;
         emit Content__IsPrivateSet(_isPrivate);
@@ -200,13 +210,14 @@ contract ContentFactory {
     function create(
         string memory name,
         string memory symbol,
+        string memory coverUri,
         address token,
         address quote,
         address rewarderFactory,
         address owner,
         bool isPrivate
     ) external returns (address, address) {
-        Content content = new Content(name, symbol, token, quote, rewarderFactory, isPrivate);
+        Content content = new Content(name, symbol, coverUri, token, quote, rewarderFactory, isPrivate);
         lastContent = address(content);
         content.transferOwnership(owner);
         emit ContentFactory__Created(lastContent);

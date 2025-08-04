@@ -50,8 +50,6 @@ interface IToken {
 
 interface IWaveFront {
     function token_Index(address token) external view returns (uint256);
-
-    function token_Uri(address token) external view returns (string memory);
 }
 
 interface IRewarder {
@@ -68,6 +66,8 @@ interface IContent {
     function owner() external view returns (address);
 
     function getNextPrice(uint256 tokenId) external view returns (uint256);
+
+    function coverUri() external view returns (string memory);
 }
 
 contract WaveFrontMulticall {
@@ -143,7 +143,7 @@ contract WaveFrontMulticall {
         uint256 expectedTokenAmt = y0 - y1;
 
         uint256 index = IWaveFront(wavefront).token_Index(token);
-        string memory uri = IWaveFront(wavefront).token_Uri(token);
+        string memory uri = IContent(content).coverUri();
 
         data.index = index;
 

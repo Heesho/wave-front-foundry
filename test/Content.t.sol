@@ -471,4 +471,20 @@ contract ContentTest is Test {
         assertTrue(rewarder.getRewardTokens()[2] == address(mockToken));
         assertTrue(rewarder.token_IsReward(address(mockToken)) == true);
     }
+
+    function test_Content_SetCoverUri() public {
+        address owner = address(0x123);
+        waveFront.create("Test1", "TEST1", "ipfs://test1", owner, false);
+        Content content = Content(contentFactory.lastContent());
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        content.setCoverUri("ipfs://test2");
+
+        assertTrue(keccak256(bytes(content.coverUri())) == keccak256(bytes("ipfs://test1")));
+
+        vm.prank(owner);
+        content.setCoverUri("ipfs://test2");
+
+        assertTrue(keccak256(bytes(content.coverUri())) == keccak256(bytes("ipfs://test2")));
+    }
 }

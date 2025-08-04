@@ -19,6 +19,7 @@ interface IContentFactory {
     function create(
         string memory name,
         string memory symbol,
+        string memory coverUri,
         address _token,
         address _quote,
         address rewarderFactory,
@@ -109,6 +110,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     constructor(
         string memory name,
         string memory symbol,
+        string memory coverUri,
         address _wavefront,
         address _quote,
         uint256 _initialSupply,
@@ -133,7 +135,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
         sale = ISaleFactory(saleFactory).create(address(this), _quote);
         (content, rewarder) = IContentFactory(contentFactory).create(
-            name, symbol, address(this), _quote, rewarderFactory, owner, isPrivate
+            name, symbol, coverUri, address(this), _quote, rewarderFactory, owner, isPrivate
         );
     }
 
@@ -422,6 +424,7 @@ contract TokenFactory {
     function create(
         string memory name,
         string memory symbol,
+        string memory coverUri,
         address wavefront,
         address quote,
         uint256 initialSupply,
@@ -436,6 +439,7 @@ contract TokenFactory {
             new Token(
                 name,
                 symbol,
+                coverUri,
                 wavefront,
                 quote,
                 initialSupply,

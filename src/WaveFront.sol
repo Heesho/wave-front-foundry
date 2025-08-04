@@ -7,6 +7,7 @@ interface ITokenFactory {
     function create(
         string memory name,
         string memory symbol,
+        string memory coverUri,
         address wavefront,
         address quote,
         uint256 initialSupply,
@@ -28,8 +29,8 @@ interface IToken {
 }
 
 contract WaveFront is Ownable {
-    uint256 public constant INITIAL_SUPPLY = 1_000_000_000 * 10 ** 18;
-    uint256 public constant RESERVE_VIRT_QUOTE_RAW = 100_000 * 10 ** 6;
+    uint256 public constant INITIAL_SUPPLY = 1_000_000_000 * 1e18;
+    uint256 public constant RESERVE_VIRT_QUOTE_RAW = 100_000 * 1e6;
 
     address public immutable quote;
 
@@ -42,7 +43,6 @@ contract WaveFront is Ownable {
     uint256 public index;
     mapping(uint256 => address) public index_Token;
     mapping(address => uint256) public token_Index;
-    mapping(address => string) public token_Uri;
 
     event WaveFront__TokenCreated(
         uint256 index,
@@ -83,6 +83,7 @@ contract WaveFront is Ownable {
         token = ITokenFactory(tokenFactory).create(
             name,
             symbol,
+            uri,
             address(this),
             quote,
             INITIAL_SUPPLY,
@@ -96,7 +97,6 @@ contract WaveFront is Ownable {
 
         index_Token[index] = token;
         token_Index[token] = index;
-        token_Uri[token] = uri;
 
         emit WaveFront__TokenCreated(
             index, token, IToken(token).sale(), IToken(token).content(), IToken(token).rewarder(), name, symbol, uri

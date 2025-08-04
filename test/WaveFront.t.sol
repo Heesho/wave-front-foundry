@@ -49,8 +49,6 @@ contract WaveFrontTest is Test {
         assertTrue(waveFront.index_Token(1) == lastToken);
         assertTrue(waveFront.index_Token(2) == address(0));
         assertTrue(waveFront.token_Index(lastToken) == 1);
-        assertTrue(keccak256(bytes(waveFront.token_Uri(lastToken))) == keccak256(bytes("ipfs://test1")));
-        assertTrue(keccak256(bytes(waveFront.token_Uri(address(0)))) == keccak256(bytes("")));
 
         waveFront.create("Test2", "TEST2", "ipfs://test2", address(1), false);
         address lastToken2 = tokenFactory.lastToken();
@@ -61,7 +59,6 @@ contract WaveFrontTest is Test {
         assertTrue(waveFront.index_Token(2) == lastToken2);
         assertTrue(waveFront.index_Token(3) == address(0));
         assertTrue(waveFront.token_Index(lastToken2) == 2);
-        assertTrue(keccak256(bytes(waveFront.token_Uri(lastToken2))) == keccak256(bytes("ipfs://test2")));
     }
 
     function test_WaveFront_Create_Token() public {
