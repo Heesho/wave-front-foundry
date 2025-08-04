@@ -34,7 +34,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     uint256 public constant PRECISION = 1e18;
     uint256 public constant FEE = 100;
-    uint256 public constant FEE_AMOUNT = 1_500;
+    uint256 public constant FEE_AMOUNT = 2_000;
     uint256 public constant DIVISOR = 10_000;
     uint256 public constant MIN_TRADE_SIZE = 1_000;
 
