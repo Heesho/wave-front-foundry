@@ -45,14 +45,16 @@ contract WaveFront is Ownable {
     mapping(address => uint256) public token_Index;
 
     event WaveFront__TokenCreated(
+        string name,
+        string symbol,
+        string uri,
         uint256 index,
         address token,
         address sale,
         address content,
         address rewarder,
-        string name,
-        string symbol,
-        string uri
+        address indexed owner,
+        bool isPrivate
     );
     event WaveFront__TreasurySet(address newTreasury);
     event WaveFront__TokenFactorySet(address newTokenFactory);
@@ -99,7 +101,16 @@ contract WaveFront is Ownable {
         token_Index[token] = index;
 
         emit WaveFront__TokenCreated(
-            index, token, IToken(token).sale(), IToken(token).content(), IToken(token).rewarder(), name, symbol, uri
+            name,
+            symbol,
+            uri,
+            index,
+            token,
+            IToken(token).sale(),
+            IToken(token).content(),
+            IToken(token).rewarder(),
+            owner,
+            isPrivate
         );
     }
 

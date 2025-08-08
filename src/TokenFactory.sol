@@ -79,13 +79,14 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         uint256 tokenOut,
         address indexed to
     );
+    event Token__SyncReserves(uint256 reserveRealQuoteWad, uint256 reserveVirtQuoteWad, uint256 reserveTokenAmt);
+    event Token__HealReserves(uint256 quoteWad, uint256 virtAddWad);
+    event Token__BurnReserves(uint256 tokenAmt, uint256 reserveBurn);
     event Token__ProviderFee(address indexed to, uint256 quoteRaw, uint256 tokenAmt);
     event Token__TreasuryFee(address indexed to, uint256 quoteRaw, uint256 tokenAmt);
     event Token__ContentFee(address indexed to, uint256 quoteRaw, uint256 tokenAmt);
-    event Token__Burn(address indexed who, uint256 tokenAmt);
     event Token__Heal(address indexed who, uint256 quoteRaw);
-    event Token__ReserveTokenBurn(uint256 tokenAmt);
-    event Token__ReserveQuoteHeal(uint256 quoteRaw);
+    event Token__Burn(address indexed who, uint256 tokenAmt);
     event Token__Borrow(address indexed who, address indexed to, uint256 quoteRaw);
     event Token__Repay(address indexed who, address indexed to, uint256 quoteRaw);
     event Token__MarketOpened();
@@ -201,11 +202,13 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     function heal(uint256 quoteRaw) external nonReentrant notZero(quoteRaw) {
         IERC20(quote).safeTransferFrom(msg.sender, address(this), quoteRaw);
         _healQuoteReserves(quoteRaw);
+        emit Token__Heal(msg.sender, quoteRaw);
     }
 
     function burn(uint256 tokenAmt) external nonReentrant notZero(tokenAmt) {
         _burn(msg.sender, tokenAmt);
         _burnTokenReserves(tokenAmt);
+        emit Token__Burn(msg.sender, tokenAmt);
     }
 
     function openMarket() external {
@@ -243,6 +246,8 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
         reserveRealQuoteWad = x1 - reserveVirtQuoteWad;
         reserveTokenAmt = y1;
+
+        emit Token__SyncReserves(reserveRealQuoteWad, reserveVirtQuoteWad, reserveTokenAmt);
     }
 
     function _processSell(uint256 tokenAmtIn, uint256 minQuoteRawOut)
@@ -266,6 +271,8 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
         reserveRealQuoteWad = x1 - reserveVirtQuoteWad;
         reserveTokenAmt = y1;
+
+        emit Token__SyncReserves(reserveRealQuoteWad, reserveVirtQuoteWad, reserveTokenAmt);
     }
 
     function _processBuyFees(uint256 quoteRaw, address provider) internal returns (uint256 remainingRaw) {
@@ -327,8 +334,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         reserveRealQuoteWad += quoteWad;
         reserveVirtQuoteWad += virtAddWad;
 
-        emit Token__ReserveQuoteHeal(wadToRaw(virtAddWad));
-        emit Token__Heal(msg.sender, quoteRaw);
+        emit Token__HealReserves(quoteWad, virtAddWad);
     }
 
     function _burnTokenReserves(uint256 tokenAmt) internal {
@@ -341,8 +347,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         reserveTokenAmt -= reserveBurn;
         maxSupply -= (tokenAmt + reserveBurn);
 
-        emit Token__ReserveTokenBurn(reserveBurn);
-        emit Token__Burn(msg.sender, tokenAmt);
+        emit Token__BurnReserves(tokenAmt, reserveBurn);
     }
 
     function _afterTokenTransfer(address from, address to, uint256 amount) internal override(ERC20, ERC20Votes) {
