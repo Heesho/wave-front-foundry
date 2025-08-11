@@ -7,9 +7,9 @@ import {TokenFactory} from "../src/TokenFactory.sol";
 import {ContentFactory} from "../src/ContentFactory.sol";
 import {SaleFactory} from "../src/SaleFactory.sol";
 import {RewarderFactory} from "../src/RewarderFactory.sol";
-import {WaveFront} from "../src/WaveFront.sol";
-import {WaveFrontRouter} from "../src/WaveFrontRouter.sol";
-import {WaveFrontMulticall} from "../src/WaveFrontMulticall.sol";
+import {Core} from "../src/Core.sol";
+import {Router} from "../src/Router.sol";
+import {Multicall} from "../src/Multicall.sol";
 
 contract Deploy is Script {
     MockUSDC public usdc;
@@ -17,9 +17,9 @@ contract Deploy is Script {
     ContentFactory public contentFactory;
     SaleFactory public saleFactory;
     RewarderFactory public rewarderFactory;
-    WaveFront public waveFront;
-    WaveFrontRouter public waveFrontRouter;
-    WaveFrontMulticall public waveFrontMulticall;
+    Core public core;
+    Router public router;
+    Multicall public multicall;
 
     function run() public {
         vm.startBroadcast();
@@ -39,20 +39,20 @@ contract Deploy is Script {
         rewarderFactory = new RewarderFactory();
         console.log("RewarderFactory deployed at:", address(rewarderFactory));
 
-        waveFront = new WaveFront(
+        core = new Core(
             address(usdc),
             address(tokenFactory),
             address(saleFactory),
             address(contentFactory),
             address(rewarderFactory)
         );
-        console.log("WaveFront deployed at:", address(waveFront));
+        console.log("Core deployed at:", address(core));
 
-        waveFrontRouter = new WaveFrontRouter(address(waveFront));
-        console.log("Router deployed at:", address(waveFrontRouter));
+        router = new Router(address(core));
+        console.log("Router deployed at:", address(router));
 
-        waveFrontMulticall = new WaveFrontMulticall(address(waveFront));
-        console.log("Multicall deployed at:", address(waveFrontMulticall));
+        multicall = new Multicall(address(core));
+        console.log("Multicall deployed at:", address(multicall));
 
         vm.stopBroadcast();
     }

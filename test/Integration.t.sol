@@ -9,9 +9,9 @@ import {Token, TokenFactory} from "../src/TokenFactory.sol";
 import {Sale, SaleFactory} from "../src/SaleFactory.sol";
 import {Content, ContentFactory} from "../src/ContentFactory.sol";
 import {Rewarder, RewarderFactory} from "../src/RewarderFactory.sol";
-import {WaveFront} from "../src/WaveFront.sol";
-import {WaveFrontRouter} from "../src/WaveFrontRouter.sol";
-import {WaveFrontMulticall} from "../src/WaveFrontMulticall.sol";
+import {Core} from "../src/Core.sol";
+import {Router} from "../src/Router.sol";
+import {Multicall} from "../src/Multicall.sol";
 
 contract IntegrationTest is Test {
     Deploy public deploy;
@@ -20,9 +20,9 @@ contract IntegrationTest is Test {
     SaleFactory public saleFactory;
     ContentFactory public contentFactory;
     RewarderFactory public rewarderFactory;
-    WaveFront public waveFront;
-    WaveFrontRouter public router;
-    WaveFrontMulticall public multicall;
+    Core public core;
+    Router public router;
+    Multicall public multicall;
 
     function setUp() public {
         deploy = new Deploy();
@@ -33,9 +33,9 @@ contract IntegrationTest is Test {
         saleFactory = deploy.saleFactory();
         contentFactory = deploy.contentFactory();
         rewarderFactory = deploy.rewarderFactory();
-        waveFront = deploy.waveFront();
-        router = deploy.waveFrontRouter();
-        multicall = deploy.waveFrontMulticall();
+        core = deploy.core();
+        router = deploy.router();
+        multicall = deploy.multicall();
     }
 
     function test_Integration(
@@ -68,7 +68,7 @@ contract IntegrationTest is Test {
         // user1 creates wft
         vm.prank(user1);
         Token wft1 = Token(router.createToken("Test1", "TEST1", "ipfs://test1", false));
-        WaveFrontMulticall.Data memory data = multicall.getData(address(wft1), user1);
+        Multicall.Data memory data = multicall.getData(address(wft1), user1);
 
         // user1 contributes to sale
         vm.assume(user1ContributeAmount > 1000 && user1ContributeAmount < 1_000_000_000_000_000_000);
@@ -414,15 +414,15 @@ contract IntegrationTest is Test {
         wft1.burn(user1Burn1);
         data = multicall.getData(address(wft1), user1);
 
-        // set wavefront treasury to treasury
+        // set core treasury to treasury
         vm.prank(owner);
-        waveFront.setTreasury(treasury);
-        assertEq(waveFront.treasury(), treasury);
+        core.setTreasury(treasury);
+        assertEq(core.treasury(), treasury);
 
         // transfer ownership to multisig
         vm.prank(owner);
-        waveFront.transferOwnership(multisig);
-        assertEq(waveFront.owner(), multisig);
+        core.transferOwnership(multisig);
+        assertEq(core.owner(), multisig);
 
         // user1 buys wft1
         (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) = multicall.buyQuoteIn(address(wft1), 10000e6, 9800);

@@ -48,7 +48,7 @@ interface IToken {
     function getAccountTransferrable(address account) external view returns (uint256);
 }
 
-interface IWaveFront {
+interface ICore {
     function token_Index(address token) external view returns (uint256);
 }
 
@@ -70,7 +70,7 @@ interface IContent {
     function coverUri() external view returns (string memory);
 }
 
-contract WaveFrontMulticall {
+contract Multicall {
     using FixedPointMathLib for uint256;
 
     uint256 public constant FEE = 100;
@@ -78,7 +78,7 @@ contract WaveFrontMulticall {
     uint256 public constant PRECISION = 1e18;
     uint256 public constant MIN_TRADE_AMOUNT = 1000;
 
-    address public immutable wavefront;
+    address public immutable core;
 
     enum Phase {
         MARKET,
@@ -120,8 +120,8 @@ contract WaveFrontMulticall {
         Phase phase;
     }
 
-    constructor(address _wavefront) {
-        wavefront = _wavefront;
+    constructor(address _core) {
+        core = _core;
     }
 
     function getData(address token, address account) external view returns (Data memory data) {
@@ -142,7 +142,7 @@ contract WaveFrontMulticall {
         uint256 y1 = x0.mulDivDown(y0, x1);
         uint256 expectedTokenAmt = y0 - y1;
 
-        uint256 index = IWaveFront(wavefront).token_Index(token);
+        uint256 index = ICore(core).token_Index(token);
         string memory uri = IContent(content).coverUri();
 
         data.index = index;

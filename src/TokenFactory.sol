@@ -7,7 +7,7 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
-interface IWaveFront {
+interface ICore {
     function treasury() external view returns (address);
 }
 
@@ -38,7 +38,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     uint256 public constant DIVISOR = 10_000;
     uint256 public constant MIN_TRADE_SIZE = 1_000;
 
-    address public immutable wavefront;
+    address public immutable core;
     address public immutable quote;
     address public immutable sale;
     address public immutable content;
@@ -112,7 +112,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         string memory name,
         string memory symbol,
         string memory coverUri,
-        address _wavefront,
+        address _core,
         address _quote,
         uint256 _initialSupply,
         uint256 _virtQuoteRaw,
@@ -122,7 +122,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         address owner,
         bool isPrivate
     ) ERC20(name, symbol) ERC20Permit(name) {
-        wavefront = _wavefront;
+        core = _core;
         quote = _quote;
 
         uint8 _quoteDecimals = IERC20Metadata(_quote).decimals();
@@ -289,7 +289,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         emit Token__ContentFee(content, feeRaw, 0);
         remainingRaw -= feeRaw;
 
-        address treasury = IWaveFront(wavefront).treasury();
+        address treasury = ICore(core).treasury();
         if (treasury != address(0)) {
             IERC20(quote).safeTransfer(treasury, feeRaw);
             emit Token__TreasuryFee(treasury, feeRaw, 0);
@@ -313,7 +313,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         emit Token__ContentFee(content, 0, feeAmt);
         remainingAmt -= feeAmt;
 
-        address treasury = IWaveFront(wavefront).treasury();
+        address treasury = ICore(core).treasury();
         if (treasury != address(0)) {
             _mint(treasury, feeAmt);
             emit Token__TreasuryFee(treasury, 0, feeAmt);
@@ -430,7 +430,7 @@ contract TokenFactory {
         string memory name,
         string memory symbol,
         string memory coverUri,
-        address wavefront,
+        address core,
         address quote,
         uint256 initialSupply,
         uint256 reserveVirtQuoteRaw,
@@ -445,7 +445,7 @@ contract TokenFactory {
                 name,
                 symbol,
                 coverUri,
-                wavefront,
+                core,
                 quote,
                 initialSupply,
                 reserveVirtQuoteRaw,

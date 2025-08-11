@@ -9,7 +9,7 @@ import {Token, TokenFactory} from "../src/TokenFactory.sol";
 import {Sale, SaleFactory} from "../src/SaleFactory.sol";
 import {Content, ContentFactory} from "../src/ContentFactory.sol";
 import {Rewarder, RewarderFactory} from "../src/RewarderFactory.sol";
-import {WaveFront} from "../src/WaveFront.sol";
+import {Core} from "../src/Core.sol";
 
 contract ContentTest is Test {
     Deploy public deploy;
@@ -18,7 +18,7 @@ contract ContentTest is Test {
     SaleFactory public saleFactory;
     ContentFactory public contentFactory;
     RewarderFactory public rewarderFactory;
-    WaveFront public waveFront;
+    Core public core;
 
     function setUp() public {
         deploy = new Deploy();
@@ -29,11 +29,11 @@ contract ContentTest is Test {
         saleFactory = deploy.saleFactory();
         contentFactory = deploy.contentFactory();
         rewarderFactory = deploy.rewarderFactory();
-        waveFront = deploy.waveFront();
+        core = deploy.core();
     }
 
     function test_Content_Constructor() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Token token = Token(tokenFactory.lastToken());
         Content content = Content(contentFactory.lastContent());
 
@@ -45,7 +45,7 @@ contract ContentTest is Test {
     }
 
     function testRevert_Content_CreateAccountZero() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
 
         vm.expectRevert("Content__ZeroTo()");
@@ -53,7 +53,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_Create() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
 
         content.create(address(0x123), "ipfs://content1");
@@ -85,7 +85,7 @@ contract ContentTest is Test {
     }
 
     function testRevert_Content_CurateMarketClosed() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
 
         content.create(address(0x123), "ipfs://content1");
@@ -126,7 +126,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_Curate() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Sale sale = Sale(saleFactory.lastSale());
 
@@ -179,7 +179,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_CurateManyTimes() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         // Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
@@ -237,7 +237,7 @@ contract ContentTest is Test {
 
     function test_Content_Distribute(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Token token = Token(tokenFactory.lastToken());
         Sale sale = Sale(saleFactory.lastSale());
@@ -305,7 +305,7 @@ contract ContentTest is Test {
     }
 
     function testRevert_Content_Transfer() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
 
         content.create(address(0x123), "ipfs://content1");
@@ -342,7 +342,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_SupportsInterface() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
 
         assertTrue(content.supportsInterface(0x80ac58cd));
@@ -353,7 +353,7 @@ contract ContentTest is Test {
     }
 
     function test_Content_TokenURI() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
 
         content.create(address(0x123), "ipfs://content1");
@@ -374,7 +374,7 @@ contract ContentTest is Test {
 
     function test_Content_CreatePrivate() public {
         address owner = address(0x123);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", owner, true);
+        core.create("Test1", "TEST1", "ipfs://test1", owner, true);
         Content content = Content(contentFactory.lastContent());
 
         address user = address(0x456);
@@ -408,7 +408,7 @@ contract ContentTest is Test {
 
     function test_Content_CreateMakePublic() public {
         address owner = address(0x722);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", owner, true);
+        core.create("Test1", "TEST1", "ipfs://test1", owner, true);
         Content content = Content(contentFactory.lastContent());
 
         vm.prank(address(0x123));
@@ -455,7 +455,7 @@ contract ContentTest is Test {
 
     function test_Content_AddRewardToken() public {
         address owner = address(0x123);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", owner, false);
+        core.create("Test1", "TEST1", "ipfs://test1", owner, false);
         Content content = Content(contentFactory.lastContent());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
@@ -474,7 +474,7 @@ contract ContentTest is Test {
 
     function test_Content_SetCoverUri() public {
         address owner = address(0x123);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", owner, false);
+        core.create("Test1", "TEST1", "ipfs://test1", owner, false);
         Content content = Content(contentFactory.lastContent());
 
         vm.expectRevert("Ownable: caller is not the owner");

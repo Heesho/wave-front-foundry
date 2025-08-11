@@ -5,7 +5,7 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-interface IWaveFront {
+interface ICore {
     function quote() external view returns (address);
 
     function create(string calldata name, string calldata symbol, string calldata uri, address owner, bool isPrivate)
@@ -67,45 +67,43 @@ interface IRewarder {
     function notifyRewardAmount(address token, uint256 amount) external;
 }
 
-contract WaveFrontRouter is ReentrancyGuard, Ownable {
+contract Router is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
-    address public immutable wavefront;
+    address public immutable core;
 
     mapping(address => address) public account_Affiliate;
 
-    event WaveFrontRouter__TokenCreated(
+    event Router__TokenCreated(
         string name, string symbol, string uri, address indexed token, address indexed creator, bool isPrivate
     );
-    event WaveFrontRouter__Buy(
+    event Router__Buy(
         address indexed token,
         address indexed account,
         address indexed affiliate,
         uint256 amountQuoteIn,
         uint256 amountTokenOut
     );
-    event WaveFrontRouter__Sell(
+    event Router__Sell(
         address indexed token,
         address indexed account,
         address indexed affiliate,
         uint256 amountTokenIn,
         uint256 amountQuoteOut
     );
-    event WaveFrontRouter__Contribute(
-        address indexed token, address quote, address indexed account, uint256 amountQuote
-    );
-    event WaveFrontRouter__Redeem(address indexed token, address indexed account);
-    event WaveFrontRouter__ContentCreated(
+    event Router__Contribute(address indexed token, address quote, address indexed account, uint256 amountQuote);
+    event Router__Redeem(address indexed token, address indexed account);
+    event Router__ContentCreated(
         address indexed token, address indexed content, address indexed account, uint256 tokenId
     );
-    event WaveFrontRouter__ContentCurated(
+    event Router__ContentCurated(
         address indexed token, address indexed content, address indexed account, uint256 price, uint256 tokenId
     );
-    event WaveFrontRouter__AffiliateSet(address indexed account, address indexed affiliate);
-    event WaveFrontRouter__MarketOpened(address indexed token, address indexed sale);
+    event Router__AffiliateSet(address indexed account, address indexed affiliate);
+    event Router__MarketOpened(address indexed token, address indexed sale);
 
-    constructor(address _wavefront) {
-        wavefront = _wavefront;
+    constructor(address _core) {
+        core = _core;
     }
 
     function createToken(string calldata name, string calldata symbol, string calldata uri, bool isPrivate)
@@ -113,8 +111,8 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
         nonReentrant
         returns (address token)
     {
-        token = IWaveFront(wavefront).create(name, symbol, uri, msg.sender, isPrivate);
-        emit WaveFrontRouter__TokenCreated(name, symbol, uri, token, msg.sender, isPrivate);
+        token = ICore(core).create(name, symbol, uri, msg.sender, isPrivate);
+        emit Router__TokenCreated(name, symbol, uri, token, msg.sender, isPrivate);
     }
 
     function buy(
@@ -126,7 +124,7 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
     ) external nonReentrant {
         _setAffiliate(affiliate);
 
-        address quote = IWaveFront(wavefront).quote();
+        address quote = ICore(core).quote();
         IERC20(quote).safeTransferFrom(msg.sender, address(this), amountQuoteIn);
         _safeApprove(quote, token, amountQuoteIn);
 
@@ -141,7 +139,7 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
 
         _distributeFees(token);
 
-        emit WaveFrontRouter__Buy(token, msg.sender, affiliate, amountQuoteIn, amountTokenOut);
+        emit Router__Buy(token, msg.sender, affiliate, amountQuoteIn, amountTokenOut);
     }
 
     function sell(
@@ -160,13 +158,13 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
 
         _distributeFees(token);
 
-        emit WaveFrontRouter__Sell(token, msg.sender, affiliate, amountTokenIn, amountQuoteOut);
+        emit Router__Sell(token, msg.sender, affiliate, amountTokenIn, amountQuoteOut);
     }
 
     function contribute(address token, uint256 amountQuoteIn) external nonReentrant {
         address sale = IToken(token).sale();
 
-        address quote = IWaveFront(wavefront).quote();
+        address quote = ICore(core).quote();
         IERC20(quote).safeTransferFrom(msg.sender, address(this), amountQuoteIn);
         _safeApprove(quote, sale, amountQuoteIn);
 
@@ -177,7 +175,7 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
             IERC20(quote).safeTransfer(msg.sender, remainingQuote);
         }
 
-        emit WaveFrontRouter__Contribute(token, quote, msg.sender, amountQuoteIn);
+        emit Router__Contribute(token, quote, msg.sender, amountQuoteIn);
         _checkAndOpenMarket(sale);
     }
 
@@ -187,19 +185,19 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
 
         ISale(sale).redeem(msg.sender);
 
-        emit WaveFrontRouter__Redeem(token, msg.sender);
+        emit Router__Redeem(token, msg.sender);
     }
 
     function createContent(address token, string calldata uri) external nonReentrant {
         address content = IToken(token).content();
         uint256 tokenId = IContent(content).create(msg.sender, uri);
 
-        emit WaveFrontRouter__ContentCreated(token, content, msg.sender, tokenId);
+        emit Router__ContentCreated(token, content, msg.sender, tokenId);
     }
 
     function curateContent(address token, uint256 tokenId) external nonReentrant {
         address content = IToken(token).content();
-        address quote = IWaveFront(wavefront).quote();
+        address quote = ICore(core).quote();
         uint256 price = IContent(content).getNextPrice(tokenId);
 
         IERC20(quote).safeTransferFrom(msg.sender, address(this), price);
@@ -207,7 +205,7 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
 
         IContent(content).curate(msg.sender, tokenId);
 
-        emit WaveFrontRouter__ContentCurated(token, content, msg.sender, price, tokenId);
+        emit Router__ContentCurated(token, content, msg.sender, price, tokenId);
     }
 
     function getContentReward(address token) external {
@@ -225,7 +223,7 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
     function _setAffiliate(address affiliate) internal {
         if (account_Affiliate[msg.sender] == address(0) && affiliate != address(0)) {
             account_Affiliate[msg.sender] = affiliate;
-            emit WaveFrontRouter__AffiliateSet(msg.sender, affiliate);
+            emit Router__AffiliateSet(msg.sender, affiliate);
         }
     }
 
@@ -237,7 +235,7 @@ contract WaveFrontRouter is ReentrancyGuard, Ownable {
     function _checkAndOpenMarket(address sale) internal {
         if (block.timestamp > ISale(sale).endTime() && !ISale(sale).ended()) {
             ISale(sale).openMarket();
-            emit WaveFrontRouter__MarketOpened(ISale(sale).token(), sale);
+            emit Router__MarketOpened(ISale(sale).token(), sale);
         }
     }
 

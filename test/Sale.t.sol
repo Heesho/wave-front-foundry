@@ -8,7 +8,7 @@ import {Token, TokenFactory} from "../src/TokenFactory.sol";
 import {Sale, SaleFactory} from "../src/SaleFactory.sol";
 import {Content, ContentFactory} from "../src/ContentFactory.sol";
 import {Rewarder, RewarderFactory} from "../src/RewarderFactory.sol";
-import {WaveFront} from "../src/WaveFront.sol";
+import {Core} from "../src/Core.sol";
 
 contract SaleTest is Test {
     Deploy public deploy;
@@ -17,7 +17,7 @@ contract SaleTest is Test {
     SaleFactory public saleFactory;
     ContentFactory public contentFactory;
     RewarderFactory public rewarderFactory;
-    WaveFront public waveFront;
+    Core public core;
 
     function setUp() public {
         deploy = new Deploy();
@@ -28,11 +28,11 @@ contract SaleTest is Test {
         saleFactory = deploy.saleFactory();
         contentFactory = deploy.contentFactory();
         rewarderFactory = deploy.rewarderFactory();
-        waveFront = deploy.waveFront();
+        core = deploy.core();
     }
 
     function test_Sale_Constructor() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
 
         address lastSale = saleFactory.lastSale();
         address sale = Token(tokenFactory.lastToken()).sale();
@@ -51,7 +51,7 @@ contract SaleTest is Test {
     }
 
     function testRevert_Sale_ContributionZeroAmount() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Sale sale = Sale(saleFactory.lastSale());
 
         vm.expectRevert("Sale__ZeroQuoteRaw()");
@@ -59,7 +59,7 @@ contract SaleTest is Test {
     }
 
     function testRevert_Sale_ContributionZeroAddress() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Sale sale = Sale(saleFactory.lastSale());
 
         vm.expectRevert("Sale__ZeroTo()");
@@ -67,7 +67,7 @@ contract SaleTest is Test {
     }
 
     function test_Sale_OpenMarketNoContribution() public {
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Sale sale = Sale(saleFactory.lastSale());
 
         vm.warp(block.timestamp + 2 hours);
@@ -85,7 +85,7 @@ contract SaleTest is Test {
 
     function testFuzz_Sale_Contribution(uint256 amount) public {
         vm.assume(amount > 1000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Sale sale = Sale(saleFactory.lastSale());
 
         address user = address(0x123);
@@ -105,7 +105,7 @@ contract SaleTest is Test {
 
     function testFuzz_Sale_OpenMarketWithContribution(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Sale sale = Sale(saleFactory.lastSale());
 
         address user = address(0x123);
@@ -133,7 +133,7 @@ contract SaleTest is Test {
 
     function testFuzz_Sale_ContributionOpenRedeem(uint256 quoteAmount) public {
         vm.assume(quoteAmount > 1000 && quoteAmount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Sale sale = Sale(saleFactory.lastSale());
         Token token = Token(tokenFactory.lastToken());
 
@@ -177,7 +177,7 @@ contract SaleTest is Test {
 
     function testFuzz_Sale_ContributeAfterClose(uint256 amount) public {
         vm.assume(amount > 1000 && amount < 1_000_000_000_000_000_000);
-        waveFront.create("Test1", "TEST1", "ipfs://test1", address(1), false);
+        core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Sale sale = Sale(saleFactory.lastSale());
 
         address user1 = address(0x123);
