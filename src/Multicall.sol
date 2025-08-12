@@ -65,6 +65,8 @@ interface IRewarder {
 interface IContent {
     function owner() external view returns (address);
 
+    function id_Price(uint256 tokenId) external view returns (uint256);
+
     function getNextPrice(uint256 tokenId) external view returns (uint256);
 
     function coverUri() external view returns (string memory);
@@ -86,7 +88,7 @@ contract Multicall {
         REDEEM
     }
 
-    struct Data {
+    struct TokenData {
         uint256 index;
         address token;
         address quote;
@@ -124,7 +126,7 @@ contract Multicall {
         core = _core;
     }
 
-    function getData(address token, address account) external view returns (Data memory data) {
+    function getTokenData(address token, address account) external view returns (TokenData memory data) {
         address quote = IToken(token).quote();
         address sale = IToken(token).sale();
         address content = IToken(token).content();
@@ -224,6 +226,47 @@ contract Multicall {
                 data.phase = Phase.MARKET;
             }
         }
+
+        return data;
+    }
+
+    struct ContentData {
+        uint256 tokenId;
+        uint256 price;
+        uint256 nextPrice;
+        uint256 rewardForDuration;
+        address creator;
+        address owner;
+        string uri;
+    }
+
+    function getContentData(address token, uint256 tokenId) external view returns (ContentData memory data) {
+        address content = IToken(token).content();
+        address rewarder = IToken(token).rewarder();
+        address quote = IToken(token).quote();
+
+        uint256 totalContentStaked = IRewarder(rewarder).totalSupply();
+
+        uint256 contentQuoteRewardForDuration =
+            totalContentStaked == 0 ? 0 : IToken(token).rawToWad(IRewarder(rewarder).getRewardForDuration(quote));
+        uint256 contentTokenRewardForDuration =
+            totalContentStaked == 0 ? 0 : IRewarder(rewarder).getRewardForDuration(token);
+        uint256 rewardForDuration = totalContentStaked == 0
+            ? 0
+            : (
+                contentQuoteRewardForDuration
+                    + ((contentTokenRewardForDuration * IToken(token).getMarketPrice()) / PRECISION)
+            );
+
+        data.tokenId = tokenId;
+        data.price = IContent(content).id_Price(tokenId);
+        data.nextPrice = IContent(content).getNextPrice(tokenId);
+        data.rewardForDuration = IContent(content).id_Price(tokenId) == 0
+            ? 0
+            : rewardForDuration * IContent(content).id_Price(tokenId) / totalContentStaked;
+        data.creator = IContent(content).owner();
+        data.owner = IContent(content).owner();
+        data.uri = IContent(content).coverUri();
 
         return data;
     }
@@ -346,10 +389,5 @@ contract Multicall {
         uint256 autoMinQuoteWadIn =
             quoteWadOut.mulDivDown((DIVISOR * PRECISION) - ((slippage + PRECISION) * 100), DIVISOR * PRECISION);
         autoMinQuoteRawOut = IToken(token).wadToRaw(autoMinQuoteWadIn);
-    }
-
-    function contentPrice(address token, uint256 tokenId) external view returns (uint256) {
-        address content = IToken(token).content();
-        return IContent(content).getNextPrice(tokenId);
     }
 }
