@@ -47,7 +47,7 @@ contract Sale is ReentrancyGuard {
     function contribute(address to, uint256 quoteRaw) external nonReentrant {
         if (to == address(0)) revert Sale__ZeroTo();
         if (quoteRaw == 0) revert Sale__ZeroQuoteRaw();
-        if (ended || block.timestamp > endTime) revert Sale__Closed();
+        if (ended) revert Sale__Closed();
 
         totalQuoteRaw += quoteRaw;
         account_QuoteRaw[to] += quoteRaw;
