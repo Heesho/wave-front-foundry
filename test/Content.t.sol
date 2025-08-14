@@ -372,7 +372,7 @@ contract ContentTest is Test {
         assertTrue(keccak256(bytes(tokenURI3)) == keccak256(bytes("ipfs://content3")));
     }
 
-    function test_Content_CreatePrivate() public {
+    function test_Content_CreateModerated() public {
         address owner = address(0x123);
         core.create("Test1", "TEST1", "ipfs://test1", owner, true);
         Content content = Content(contentFactory.lastContent());
@@ -380,75 +380,90 @@ contract ContentTest is Test {
         address user = address(0x456);
 
         vm.prank(user);
-        vm.expectRevert("Content__NotCreator()");
         content.create(owner, "ipfs://content1");
-
-        address[] memory creators = new address[](1);
-        creators[0] = owner;
         vm.prank(owner);
-        content.setCreators(creators, true);
+        vm.expectRevert("Content__NotApproved()");
+        content.curate(owner, 1);
+
+        vm.prank(user);
+
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+        vm.expectRevert("Content__NotModerator()");
+        content.approveContents(tokenIds);
+
+        address[] memory moderators = new address[](1);
+        moderators[0] = user;
+        vm.prank(owner);
+        content.setModerators(moderators, true);
 
         vm.prank(user);
         vm.expectRevert("Ownable: caller is not the owner");
-        content.setCreators(creators, false);
+        content.setModerators(moderators, false);
 
         vm.prank(owner);
-        content.create(user, "ipfs://content1");
+        content.create(user, "ipfs://content2");
+        tokenIds[0] = 2;
+        vm.prank(owner);
+        content.approveContents(tokenIds);
 
         vm.prank(owner);
-        content.create(owner, "ipfs://content2");
-
-        creators[0] = user;
-        vm.prank(owner);
-        content.setCreators(creators, true);
+        content.create(owner, "ipfs://content3");
 
         vm.prank(user);
-        content.create(user, "ipfs://content3");
+        tokenIds[0] = 3;
+        content.approveContents(tokenIds);
     }
 
-    function test_Content_CreateMakePublic() public {
+    function test_Content_CreateMakeUnmoderated() public {
         address owner = address(0x722);
         core.create("Test1", "TEST1", "ipfs://test1", owner, true);
         Content content = Content(contentFactory.lastContent());
 
         vm.prank(address(0x123));
-        vm.expectRevert("Content__NotCreator()");
         content.create(address(0x123), "ipfs://content1");
+        assertTrue(content.id_IsApproved(1) == false);
 
         vm.prank(address(0x123));
         vm.expectRevert();
-        content.setIsPrivate(false);
+        content.setIsModerated(false);
 
         vm.prank(owner);
-        content.setIsPrivate(false);
+        content.setIsModerated(false);
 
         vm.prank(address(0x123));
-        content.create(address(0x123), "ipfs://content1");
+        content.create(address(0x123), "ipfs://content2");
+        assertTrue(content.id_IsApproved(2) == true);
+
         uint256 nextTokenId = content.nextTokenId();
         uint256 price = content.id_Price(1);
         address creator = content.id_Creator(1);
 
-        assertTrue(nextTokenId == 1);
+        assertTrue(nextTokenId == 2);
         assertTrue(price == 0);
         assertTrue(creator == address(0x123));
 
         vm.prank(address(0x456));
-        content.create(address(0x456), "ipfs://content2");
-        nextTokenId = content.nextTokenId();
-        price = content.id_Price(2);
-        creator = content.id_Creator(2);
+        content.create(address(0x456), "ipfs://content3");
+        assertTrue(content.id_IsApproved(3) == true);
 
-        assertTrue(nextTokenId == 2);
-        assertTrue(price == 0);
-        assertTrue(creator == address(0x456));
-
-        vm.prank(address(0x789));
-        content.create(address(0x789), "ipfs://content3");
         nextTokenId = content.nextTokenId();
         price = content.id_Price(3);
         creator = content.id_Creator(3);
 
         assertTrue(nextTokenId == 3);
+        assertTrue(price == 0);
+        assertTrue(creator == address(0x456));
+
+        vm.prank(address(0x789));
+        content.create(address(0x789), "ipfs://content4");
+        assertTrue(content.id_IsApproved(4) == true);
+
+        nextTokenId = content.nextTokenId();
+        price = content.id_Price(4);
+        creator = content.id_Creator(4);
+
+        assertTrue(nextTokenId == 4);
         assertTrue(price == 0);
         assertTrue(creator == address(0x789));
     }

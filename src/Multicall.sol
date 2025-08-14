@@ -65,11 +65,19 @@ interface IRewarder {
 interface IContent {
     function owner() external view returns (address);
 
+    function id_Creator(uint256 tokenId) external view returns (address);
+
     function id_Price(uint256 tokenId) external view returns (uint256);
+
+    function id_IsApproved(uint256 tokenId) external view returns (bool);
 
     function getNextPrice(uint256 tokenId) external view returns (uint256);
 
     function coverUri() external view returns (string memory);
+
+    function isModerated() external view returns (bool);
+
+    function account_IsModerator(address account) external view returns (bool);
 }
 
 contract Multicall {
@@ -99,6 +107,7 @@ contract Multicall {
         string name;
         string symbol;
         string uri;
+        bool isModerated;
         bool marketOpen;
         uint256 saleEnd;
         uint256 totalQuoteContributed;
@@ -119,7 +128,19 @@ contract Multicall {
         uint256 accountContentStaked;
         uint256 accountQuoteEarned;
         uint256 accountTokenEarned;
+        bool accountIsModerator;
         Phase phase;
+    }
+
+    struct ContentData {
+        uint256 tokenId;
+        uint256 price;
+        uint256 nextPrice;
+        uint256 rewardForDuration;
+        address creator;
+        address owner;
+        string uri;
+        bool isApproved;
     }
 
     constructor(address _core) {
@@ -159,6 +180,7 @@ contract Multicall {
         data.name = IERC20Metadata(token).name();
         data.symbol = IERC20Metadata(token).symbol();
         data.uri = uri;
+        data.isModerated = IContent(content).isModerated();
 
         data.marketOpen = marketOpen;
         data.saleEnd = ISale(sale).endTime();
@@ -209,6 +231,8 @@ contract Multicall {
             data.accountContentStaked = accountContentStaked;
             data.accountQuoteEarned = IRewarder(rewarder).earned(account, quote);
             data.accountTokenEarned = IRewarder(rewarder).earned(account, token);
+            data.accountIsModerator =
+                IContent(content).owner() == account || IContent(content).account_IsModerator(account);
         }
 
         if (!marketOpen && block.timestamp < data.saleEnd) {
@@ -228,16 +252,6 @@ contract Multicall {
         }
 
         return data;
-    }
-
-    struct ContentData {
-        uint256 tokenId;
-        uint256 price;
-        uint256 nextPrice;
-        uint256 rewardForDuration;
-        address creator;
-        address owner;
-        string uri;
     }
 
     function getContentData(address token, uint256 tokenId) external view returns (ContentData memory data) {
@@ -264,9 +278,10 @@ contract Multicall {
         data.rewardForDuration = IContent(content).id_Price(tokenId) == 0
             ? 0
             : rewardForDuration * IContent(content).id_Price(tokenId) / totalContentStaked;
-        data.creator = IContent(content).owner();
+        data.creator = IContent(content).id_Creator(tokenId);
         data.owner = IContent(content).owner();
         data.uri = IContent(content).coverUri();
+        data.isApproved = IContent(content).id_IsApproved(tokenId);
 
         return data;
     }

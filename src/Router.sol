@@ -8,7 +8,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 interface ICore {
     function quote() external view returns (address);
 
-    function create(string calldata name, string calldata symbol, string calldata uri, address owner, bool isPrivate)
+    function create(string calldata name, string calldata symbol, string calldata uri, address owner, bool isModerated)
         external
         returns (address token);
 }
@@ -75,7 +75,7 @@ contract Router is ReentrancyGuard, Ownable {
     mapping(address => address) public account_Affiliate;
 
     event Router__TokenCreated(
-        string name, string symbol, string uri, address indexed token, address indexed creator, bool isPrivate
+        string name, string symbol, string uri, address indexed token, address indexed creator, bool isModerated
     );
     event Router__Buy(
         address indexed token,
@@ -106,13 +106,13 @@ contract Router is ReentrancyGuard, Ownable {
         core = _core;
     }
 
-    function createToken(string calldata name, string calldata symbol, string calldata uri, bool isPrivate)
+    function createToken(string calldata name, string calldata symbol, string calldata uri, bool isModerated)
         external
         nonReentrant
         returns (address token)
     {
-        token = ICore(core).create(name, symbol, uri, msg.sender, isPrivate);
-        emit Router__TokenCreated(name, symbol, uri, token, msg.sender, isPrivate);
+        token = ICore(core).create(name, symbol, uri, msg.sender, isModerated);
+        emit Router__TokenCreated(name, symbol, uri, token, msg.sender, isModerated);
     }
 
     function buy(

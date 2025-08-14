@@ -38,24 +38,29 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard,
 
     string public coverUri;
 
-    bool public isPrivate;
-    mapping(address => bool) public account_IsCreator;
+    bool public isModerated;
+    mapping(address => bool) public account_IsModerator;
 
     uint256 public nextTokenId;
 
     mapping(uint256 => uint256) public id_Price;
     mapping(uint256 => address) public id_Creator;
+    mapping(uint256 => bool) public id_IsApproved;
 
     error Content__ZeroTo();
     error Content__NotCreator();
     error Content__InvalidTokenId();
     error Content__TransferDisabled();
+    error Content__NotApproved();
+    error Content__AlreadyApproved();
+    error Content__NotModerator();
 
     event Content__Created(address indexed who, address indexed to, uint256 indexed tokenId, string uri);
     event Content__Curated(address indexed who, address indexed to, uint256 indexed tokenId, uint256 price);
     event Content__CoverUriSet(string coverUri);
-    event Content__IsPrivateSet(bool isPrivate);
-    event Content__CreatorsSet(address indexed account, bool isCreator);
+    event Content__IsModeratedSet(bool isModerated);
+    event Content__ModeratorsSet(address indexed account, bool isModerator);
+    event Content__Approved(address indexed moderator, uint256 indexed tokenId);
     event Content__RewardAdded(address indexed rewardToken);
 
     constructor(
@@ -65,12 +70,12 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard,
         address _token,
         address _quote,
         address rewarderFactory,
-        bool _isPrivate
+        bool _isModerated
     ) ERC721(name, symbol) {
         coverUri = _coverUri;
         token = _token;
         quote = _quote;
-        isPrivate = _isPrivate;
+        isModerated = _isModerated;
         rewarder = IRewarderFactory(rewarderFactory).create(address(this));
         IRewarder(rewarder).addReward(quote);
         IRewarder(rewarder).addReward(token);
@@ -78,10 +83,10 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard,
 
     function create(address to, string memory uri) external nonReentrant returns (uint256 tokenId) {
         if (to == address(0)) revert Content__ZeroTo();
-        if (isPrivate && !account_IsCreator[msg.sender]) revert Content__NotCreator();
 
         tokenId = ++nextTokenId;
         id_Creator[tokenId] = to;
+        if (!isModerated) id_IsApproved[tokenId] = true;
 
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
@@ -92,6 +97,7 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard,
     function curate(address to, uint256 tokenId) external nonReentrant {
         if (to == address(0)) revert Content__ZeroTo();
         if (ownerOf(tokenId) == address(0)) revert Content__InvalidTokenId();
+        if (!id_IsApproved[tokenId]) revert Content__NotApproved();
 
         address creator = id_Creator[tokenId];
         uint256 prevPrice = id_Price[tokenId];
@@ -163,15 +169,25 @@ contract Content is ERC721, ERC721Enumerable, ERC721URIStorage, ReentrancyGuard,
         emit Content__CoverUriSet(_coverUri);
     }
 
-    function setIsPrivate(bool _isPrivate) external onlyOwner {
-        isPrivate = _isPrivate;
-        emit Content__IsPrivateSet(_isPrivate);
+    function setIsModerated(bool _isModerated) external onlyOwner {
+        isModerated = _isModerated;
+        emit Content__IsModeratedSet(_isModerated);
     }
 
-    function setCreators(address[] calldata accounts, bool isCreator) external onlyOwner {
+    function setModerators(address[] calldata accounts, bool isModerator) external onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
-            account_IsCreator[accounts[i]] = isCreator;
-            emit Content__CreatorsSet(accounts[i], isCreator);
+            account_IsModerator[accounts[i]] = isModerator;
+            emit Content__ModeratorsSet(accounts[i], isModerator);
+        }
+    }
+
+    function approveContents(uint256[] calldata tokenIds) external {
+        if (msg.sender != owner() && !account_IsModerator[msg.sender]) revert Content__NotModerator();
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (id_IsApproved[tokenIds[i]]) revert Content__AlreadyApproved();
+            if (ownerOf(tokenIds[i]) == address(0)) revert Content__InvalidTokenId();
+            id_IsApproved[tokenIds[i]] = true;
+            emit Content__Approved(msg.sender, tokenIds[i]);
         }
     }
 
@@ -215,9 +231,9 @@ contract ContentFactory {
         address quote,
         address rewarderFactory,
         address owner,
-        bool isPrivate
+        bool isModerated
     ) external returns (address, address) {
-        Content content = new Content(name, symbol, coverUri, token, quote, rewarderFactory, isPrivate);
+        Content content = new Content(name, symbol, coverUri, token, quote, rewarderFactory, isModerated);
         lastContent = address(content);
         content.transferOwnership(owner);
         emit ContentFactory__Created(lastContent);

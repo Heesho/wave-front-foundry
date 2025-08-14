@@ -17,7 +17,7 @@ contract Sale is ReentrancyGuard {
     using FixedPointMathLib for uint256;
     using SafeERC20 for IERC20;
 
-    uint256 private constant DURATION = 2 hours;
+    uint256 private constant DURATION = 10 minutes;
 
     address public immutable quote;
     address public immutable token;

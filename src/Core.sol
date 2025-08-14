@@ -16,7 +16,7 @@ interface ITokenFactory {
         address contentFactory,
         address rewarderFactory,
         address owner,
-        bool isPrivate
+        bool isModerated
     ) external returns (address token);
 }
 
@@ -54,7 +54,7 @@ contract Core is Ownable {
         address content,
         address rewarder,
         address indexed owner,
-        bool isPrivate
+        bool isModerated
     );
     event Core__TreasurySet(address newTreasury);
     event Core__TokenFactorySet(address newTokenFactory);
@@ -76,7 +76,7 @@ contract Core is Ownable {
         rewarderFactory = _rewarderFactory;
     }
 
-    function create(string memory name, string memory symbol, string memory uri, address owner, bool isPrivate)
+    function create(string memory name, string memory symbol, string memory uri, address owner, bool isModerated)
         external
         returns (address token)
     {
@@ -94,7 +94,7 @@ contract Core is Ownable {
             contentFactory,
             rewarderFactory,
             owner,
-            isPrivate
+            isModerated
         );
 
         index_Token[index] = token;
@@ -110,7 +110,7 @@ contract Core is Ownable {
             IToken(token).content(),
             IToken(token).rewarder(),
             owner,
-            isPrivate
+            isModerated
         );
     }
 

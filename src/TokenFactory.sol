@@ -24,7 +24,7 @@ interface IContentFactory {
         address _quote,
         address rewarderFactory,
         address owner,
-        bool isPrivate
+        bool isModerated
     ) external returns (address, address);
 }
 
@@ -120,7 +120,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         address contentFactory,
         address rewarderFactory,
         address owner,
-        bool isPrivate
+        bool isModerated
     ) ERC20(name, symbol) ERC20Permit(name) {
         core = _core;
         quote = _quote;
@@ -136,7 +136,7 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
         sale = ISaleFactory(saleFactory).create(address(this), _quote);
         (content, rewarder) = IContentFactory(contentFactory).create(
-            name, symbol, coverUri, address(this), _quote, rewarderFactory, owner, isPrivate
+            name, symbol, coverUri, address(this), _quote, rewarderFactory, owner, isModerated
         );
     }
 
@@ -438,7 +438,7 @@ contract TokenFactory {
         address contentFactory,
         address rewarderFactory,
         address owner,
-        bool isPrivate
+        bool isModerated
     ) external returns (address token) {
         token = address(
             new Token(
@@ -453,7 +453,7 @@ contract TokenFactory {
                 contentFactory,
                 rewarderFactory,
                 owner,
-                isPrivate
+                isModerated
             )
         );
         lastToken = token;
