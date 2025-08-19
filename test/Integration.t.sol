@@ -495,6 +495,5 @@ contract IntegrationTest is Test {
         usdc.mint(address(router), 1e6);
         vm.prank(owner);
         router.withdrawStuckTokens(address(usdc), multisig);
-
     }
 }
