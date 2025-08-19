@@ -7,7 +7,6 @@ import {MockUSDC} from "./mocks/MockUSDC.sol";
 import {MockToken} from "./mocks/MockToken.sol";
 import {Content, ContentFactory} from "../src/ContentFactory.sol";
 import {Token, TokenFactory} from "../src/TokenFactory.sol";
-import {Sale, SaleFactory} from "../src/SaleFactory.sol";
 import {Rewarder, RewarderFactory} from "../src/RewarderFactory.sol";
 import {Core} from "../src/Core.sol";
 
@@ -18,7 +17,6 @@ contract RewarderTest is Test {
     RewarderFactory public rewarderFactory;
     ContentFactory public contentFactory;
     TokenFactory public tokenFactory;
-    SaleFactory public saleFactory;
     Core public core;
 
     function setUp() public {
@@ -30,7 +28,6 @@ contract RewarderTest is Test {
         rewarderFactory = deploy.rewarderFactory();
         contentFactory = deploy.contentFactory();
         tokenFactory = deploy.tokenFactory();
-        saleFactory = deploy.saleFactory();
         core = deploy.core();
     }
 

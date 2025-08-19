@@ -11,10 +11,6 @@ interface ICore {
     function treasury() external view returns (address);
 }
 
-interface ISaleFactory {
-    function create(address token, address quote) external returns (address saleAddress);
-}
-
 interface IContentFactory {
     function create(
         string memory name,
@@ -40,7 +36,6 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
 
     address public immutable core;
     address public immutable quote;
-    address public immutable sale;
     address public immutable content;
     address public immutable rewarder;
 
@@ -48,7 +43,6 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     uint256 internal immutable quoteScale;
 
     uint256 public maxSupply;
-    bool public open = false;
 
     uint256 public reserveRealQuoteWad;
     uint256 public reserveVirtQuoteWad;
@@ -62,14 +56,11 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     error Token__Expired();
     error Token__MinTradeSize();
     error Token__Slippage();
-    error Token__MarketClosed();
-    error Token__NotAuthorized();
     error Token__CollateralLocked();
     error Token__CreditExceeded();
     error Token__InvalidShift();
     error Token__DivideByZero();
     error Token__ReserveUnderflow();
-    error Token__NotOwner();
 
     event Token__Swap(
         address indexed from,
@@ -89,7 +80,6 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
     event Token__Burn(address indexed who, uint256 tokenAmt);
     event Token__Borrow(address indexed who, address indexed to, uint256 quoteRaw);
     event Token__Repay(address indexed who, address indexed to, uint256 quoteRaw);
-    event Token__MarketOpened();
 
     modifier notZero(uint256 amount) {
         if (amount == 0) revert Token__ZeroInput();
@@ -116,7 +106,6 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         address _quote,
         uint256 _initialSupply,
         uint256 _virtQuoteRaw,
-        address saleFactory,
         address contentFactory,
         address rewarderFactory,
         address owner,
@@ -134,7 +123,6 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         reserveTokenAmt = _initialSupply;
         reserveVirtQuoteWad = rawToWad(_virtQuoteRaw);
 
-        sale = ISaleFactory(saleFactory).create(address(this), _quote);
         (content, rewarder) = IContentFactory(contentFactory).create(
             name, symbol, coverUri, address(this), _quote, rewarderFactory, owner, isModerated
         );
@@ -147,8 +135,6 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         notExpired(deadline)
         returns (uint256 tokenAmtOut)
     {
-        if (!open && msg.sender != sale) revert Token__MarketClosed();
-
         uint256 feeRaw;
         (tokenAmtOut, feeRaw) = _processBuy(quoteRawIn, minTokenAmtOut);
 
@@ -209,12 +195,6 @@ contract Token is ERC20, ERC20Permit, ERC20Votes, ReentrancyGuard {
         _burn(msg.sender, tokenAmt);
         _burnTokenReserves(tokenAmt);
         emit Token__Burn(msg.sender, tokenAmt);
-    }
-
-    function openMarket() external {
-        if (msg.sender != sale) revert Token__NotAuthorized();
-        open = true;
-        emit Token__MarketOpened();
     }
 
     function rawToWad(uint256 raw) public view returns (uint256) {
@@ -434,7 +414,6 @@ contract TokenFactory {
         address quote,
         uint256 initialSupply,
         uint256 reserveVirtQuoteRaw,
-        address saleFactory,
         address contentFactory,
         address rewarderFactory,
         address owner,
@@ -449,7 +428,6 @@ contract TokenFactory {
                 quote,
                 initialSupply,
                 reserveVirtQuoteRaw,
-                saleFactory,
                 contentFactory,
                 rewarderFactory,
                 owner,

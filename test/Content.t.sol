@@ -6,7 +6,6 @@ import {Deploy} from "../script/Deploy.s.sol";
 import {MockUSDC} from "./mocks/MockUSDC.sol";
 import {MockToken} from "./mocks/MockToken.sol";
 import {Token, TokenFactory} from "../src/TokenFactory.sol";
-import {Sale, SaleFactory} from "../src/SaleFactory.sol";
 import {Content, ContentFactory} from "../src/ContentFactory.sol";
 import {Rewarder, RewarderFactory} from "../src/RewarderFactory.sol";
 import {Core} from "../src/Core.sol";
@@ -15,7 +14,6 @@ contract ContentTest is Test {
     Deploy public deploy;
     MockUSDC public usdc;
     TokenFactory public tokenFactory;
-    SaleFactory public saleFactory;
     ContentFactory public contentFactory;
     RewarderFactory public rewarderFactory;
     Core public core;
@@ -26,7 +24,6 @@ contract ContentTest is Test {
 
         usdc = deploy.usdc();
         tokenFactory = deploy.tokenFactory();
-        saleFactory = deploy.saleFactory();
         contentFactory = deploy.contentFactory();
         rewarderFactory = deploy.rewarderFactory();
         core = deploy.core();
@@ -128,19 +125,15 @@ contract ContentTest is Test {
     function test_Content_Curate() public {
         core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
-        Sale sale = Sale(saleFactory.lastSale());
+        Token token = Token(tokenFactory.lastToken());
 
         usdc.mint(address(0x789), 1e6);
 
         vm.prank(address(0x789));
-        usdc.approve(address(sale), 1e6);
+        usdc.approve(address(token), 1e6);
 
         vm.prank(address(0x789));
-        sale.contribute(address(0x789), 1e6);
-
-        vm.warp(block.timestamp + 2 hours + 60 seconds);
-
-        sale.openMarket();
+        token.buy(1e6, 0, 0, address(0x789), address(0));
 
         content.create(address(0x123), "ipfs://content1");
         uint256 nextTokenId = content.nextTokenId();
@@ -181,20 +174,15 @@ contract ContentTest is Test {
     function test_Content_CurateManyTimes() public {
         core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
-        // Token token = Token(tokenFactory.lastToken());
-        Sale sale = Sale(saleFactory.lastSale());
+        Token token = Token(tokenFactory.lastToken());
 
         usdc.mint(address(0x789), 1e6);
 
         vm.prank(address(0x789));
-        usdc.approve(address(sale), 1e6);
+        usdc.approve(address(token), 1e6);
 
         vm.prank(address(0x789));
-        sale.contribute(address(0x789), 1e6);
-
-        vm.warp(block.timestamp + 2 hours + 60 seconds);
-
-        sale.openMarket();
+        token.buy(1e6, 0, 0, address(0x789), address(0));
 
         content.create(address(0x123), "ipfs://content1");
         uint256 nextTokenId = content.nextTokenId();
@@ -240,7 +228,6 @@ contract ContentTest is Test {
         core.create("Test1", "TEST1", "ipfs://test1", address(1), false);
         Content content = Content(contentFactory.lastContent());
         Token token = Token(tokenFactory.lastToken());
-        Sale sale = Sale(saleFactory.lastSale());
         Rewarder rewarder = Rewarder(rewarderFactory.lastRewarder());
 
         content.distribute();
@@ -257,16 +244,10 @@ contract ContentTest is Test {
         usdc.mint(address(0x123), amount);
 
         vm.prank(address(0x123));
-        usdc.approve(address(sale), amount);
+        usdc.approve(address(token), amount);
 
         vm.prank(address(0x123));
-        sale.contribute(address(0x123), amount);
-
-        vm.warp(block.timestamp + 2 hours + 60 seconds);
-
-        sale.openMarket();
-
-        sale.redeem(address(0x123));
+        token.buy(amount, 0, 0, address(0x123), address(0));
 
         usdc.mint(address(content), amount);
 

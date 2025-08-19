@@ -37,20 +37,6 @@ interface IToken {
     ) external returns (uint256 amountQuoteOut);
 }
 
-interface ISale {
-    function contribute(address to, uint256 quoteRaw) external;
-
-    function redeem(address who) external;
-
-    function openMarket() external;
-
-    function ended() external view returns (bool);
-
-    function endTime() external view returns (uint256);
-
-    function token() external view returns (address);
-}
-
 interface IContent {
     function getNextPrice(uint256 tokenId) external view returns (uint256);
 
@@ -75,7 +61,14 @@ contract Router is ReentrancyGuard, Ownable {
     mapping(address => address) public account_Affiliate;
 
     event Router__TokenCreated(
-        string name, string symbol, string uri, address indexed token, address indexed creator, bool isModerated
+        string name,
+        string symbol,
+        string uri,
+        address indexed token,
+        address indexed creator,
+        bool isModerated,
+        uint256 amountQuoteIn,
+        uint256 amountTokenOut
     );
     event Router__Buy(
         address indexed token,
@@ -91,8 +84,6 @@ contract Router is ReentrancyGuard, Ownable {
         uint256 amountTokenIn,
         uint256 amountQuoteOut
     );
-    event Router__Contribute(address indexed token, address quote, address indexed account, uint256 amountQuote);
-    event Router__Redeem(address indexed token, address indexed account);
     event Router__ContentCreated(
         address indexed token, address indexed content, address indexed account, uint256 tokenId
     );
@@ -100,19 +91,34 @@ contract Router is ReentrancyGuard, Ownable {
         address indexed token, address indexed content, address indexed account, uint256 price, uint256 tokenId
     );
     event Router__AffiliateSet(address indexed account, address indexed affiliate);
-    event Router__MarketOpened(address indexed token, address indexed sale);
 
     constructor(address _core) {
         core = _core;
     }
 
-    function createToken(string calldata name, string calldata symbol, string calldata uri, bool isModerated)
-        external
-        nonReentrant
-        returns (address token)
-    {
+    function createToken(
+        string calldata name,
+        string calldata symbol,
+        string calldata uri,
+        bool isModerated,
+        uint256 amountQuoteIn
+    ) external nonReentrant returns (address token) {
         token = ICore(core).create(name, symbol, uri, msg.sender, isModerated);
-        emit Router__TokenCreated(name, symbol, uri, token, msg.sender, isModerated);
+
+        uint256 amountTokenOut;
+        if (amountQuoteIn > 0) {
+            address quote = ICore(core).quote();
+            IERC20(quote).safeTransferFrom(msg.sender, address(this), amountQuoteIn);
+            _safeApprove(quote, token, amountQuoteIn);
+            amountTokenOut = IToken(token).buy(amountQuoteIn, 0, 0, msg.sender, address(0));
+
+            uint256 remainingQuote = IERC20(quote).balanceOf(address(this));
+            if (remainingQuote > 0) {
+                IERC20(quote).safeTransfer(msg.sender, remainingQuote);
+            }
+        }
+
+        emit Router__TokenCreated(name, symbol, uri, token, msg.sender, isModerated, amountQuoteIn, amountTokenOut);
     }
 
     function buy(
@@ -161,33 +167,6 @@ contract Router is ReentrancyGuard, Ownable {
         emit Router__Sell(token, msg.sender, affiliate, amountTokenIn, amountQuoteOut);
     }
 
-    function contribute(address token, uint256 amountQuoteIn) external nonReentrant {
-        address sale = IToken(token).sale();
-
-        address quote = ICore(core).quote();
-        IERC20(quote).safeTransferFrom(msg.sender, address(this), amountQuoteIn);
-        _safeApprove(quote, sale, amountQuoteIn);
-
-        ISale(sale).contribute(msg.sender, amountQuoteIn);
-
-        uint256 remainingQuote = IERC20(quote).balanceOf(address(this));
-        if (remainingQuote > 0) {
-            IERC20(quote).safeTransfer(msg.sender, remainingQuote);
-        }
-
-        emit Router__Contribute(token, quote, msg.sender, amountQuoteIn);
-        _checkAndOpenMarket(sale);
-    }
-
-    function redeem(address token) external nonReentrant {
-        address sale = IToken(token).sale();
-        _checkAndOpenMarket(sale);
-
-        ISale(sale).redeem(msg.sender);
-
-        emit Router__Redeem(token, msg.sender);
-    }
-
     function createContent(address token, string calldata uri) external nonReentrant {
         address content = IToken(token).content();
         uint256 tokenId = IContent(content).create(msg.sender, uri);
@@ -230,13 +209,6 @@ contract Router is ReentrancyGuard, Ownable {
     function _safeApprove(address token, address spender, uint256 amount) internal {
         IERC20(token).safeApprove(spender, 0);
         IERC20(token).safeApprove(spender, amount);
-    }
-
-    function _checkAndOpenMarket(address sale) internal {
-        if (block.timestamp > ISale(sale).endTime() && !ISale(sale).ended()) {
-            ISale(sale).openMarket();
-            emit Router__MarketOpened(ISale(sale).token(), sale);
-        }
     }
 
     function _distributeFees(address token) internal {

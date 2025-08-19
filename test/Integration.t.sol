@@ -6,7 +6,6 @@ import {Deploy} from "../script/Deploy.s.sol";
 import {MockUSDC} from "./mocks/MockUSDC.sol";
 import {MockToken} from "./mocks/MockToken.sol";
 import {Token, TokenFactory} from "../src/TokenFactory.sol";
-import {Sale, SaleFactory} from "../src/SaleFactory.sol";
 import {Content, ContentFactory} from "../src/ContentFactory.sol";
 import {Rewarder, RewarderFactory} from "../src/RewarderFactory.sol";
 import {Core} from "../src/Core.sol";
@@ -17,7 +16,6 @@ contract IntegrationTest is Test {
     Deploy public deploy;
     MockUSDC public usdc;
     TokenFactory public tokenFactory;
-    SaleFactory public saleFactory;
     ContentFactory public contentFactory;
     RewarderFactory public rewarderFactory;
     Core public core;
@@ -30,7 +28,6 @@ contract IntegrationTest is Test {
 
         usdc = deploy.usdc();
         tokenFactory = deploy.tokenFactory();
-        saleFactory = deploy.saleFactory();
         contentFactory = deploy.contentFactory();
         rewarderFactory = deploy.rewarderFactory();
         core = deploy.core();
@@ -39,9 +36,7 @@ contract IntegrationTest is Test {
     }
 
     function test_Integration(
-        uint256 user1ContributeAmount,
-        uint256 user2ContributeAmount,
-        uint256 user3ContributeAmount,
+        uint256 createQuoteAmount,
         uint256 user1BuyAmount1,
         uint256 user1BuyAmount2,
         uint256 user2BuyAmount1,
@@ -66,89 +61,17 @@ contract IntegrationTest is Test {
         address treasury = address(0x106);
 
         // user1 creates wft
+        vm.assume(createQuoteAmount > 1000 && createQuoteAmount < 10_000_000_000_000);
+        usdc.mint(user1, createQuoteAmount);
         vm.prank(user1);
-        Token wft1 = Token(router.createToken("Test1", "TEST1", "ipfs://test1", false));
+        usdc.approve(address(router), createQuoteAmount);
+        vm.prank(user1);
+        Token wft1 = Token(router.createToken("Test1", "TEST1", "ipfs://test1", false, createQuoteAmount));
         Multicall.TokenData memory tokenData = multicall.getTokenData(address(wft1), user1);
         Multicall.ContentData memory contentData = multicall.getContentData(address(wft1), 1);
 
-        // user1 contributes to sale
-        vm.assume(user1ContributeAmount > 1000 && user1ContributeAmount < 1_000_000_000_000_000_000);
-        usdc.mint(user1, user1ContributeAmount);
-        vm.prank(user1);
-        usdc.approve(address(router), user1ContributeAmount);
-        vm.prank(user1);
-        router.contribute(address(wft1), user1ContributeAmount);
-        tokenData = multicall.getTokenData(address(wft1), user1);
-
-        // user2 contributes to sale
-        vm.assume(user2ContributeAmount > 1000 && user2ContributeAmount < 1_000_000_000_000_000_000);
-        usdc.mint(user2, user2ContributeAmount);
-        vm.prank(user2);
-        usdc.approve(address(router), user2ContributeAmount);
-        vm.prank(user2);
-        router.contribute(address(wft1), user2ContributeAmount);
-        tokenData = multicall.getTokenData(address(wft1), user2);
-
-        // user2 contributes to sale again
-        vm.assume(user2ContributeAmount > 1000 && user2ContributeAmount < 1_000_000_000_000_000_000);
-        usdc.mint(user2, user2ContributeAmount);
-        vm.prank(user2);
-        usdc.approve(address(router), user2ContributeAmount);
-        vm.prank(user2);
-        router.contribute(address(wft1), user2ContributeAmount);
-        tokenData = multicall.getTokenData(address(wft1), user2);
-
-        // user3 contributes to sale
-        vm.assume(user3ContributeAmount > 1000 && user3ContributeAmount < 1_000_000_000_000_000_000);
-        usdc.mint(user3, user3ContributeAmount);
-        vm.prank(user3);
-        usdc.approve(address(router), user3ContributeAmount);
-        vm.prank(user3);
-        router.contribute(address(wft1), user3ContributeAmount);
-        tokenData = multicall.getTokenData(address(wft1), user3);
-
-        // user1 redeems wft and fails cause sale is in progress
-        vm.prank(user1);
-        vm.expectRevert("Sale__Open()");
-        router.redeem(address(wft1));
-
-        // warp time to sale end
-        vm.warp(block.timestamp + 10000);
-        tokenData = multicall.getTokenData(address(wft1), user1);
-        tokenData = multicall.getTokenData(address(wft1), user4);
-
-        // user1 redeems wft contribution and opens sale
-        vm.prank(user1);
-        router.redeem(address(wft1));
-        tokenData = multicall.getTokenData(address(wft1), user1);
-
-        // user1 redeems wft contribution but fails
-        vm.prank(user1);
-        vm.expectRevert("Sale__ZeroQuoteRaw()");
-        router.redeem(address(wft1));
-
-        // user4 redeems wft contribution but fails
-        vm.prank(user4);
-        vm.expectRevert("Sale__ZeroQuoteRaw()");
-        router.redeem(address(wft1));
-
-        // user2 redeems wft contribution
-        vm.prank(user2);
-        router.redeem(address(wft1));
-        tokenData = multicall.getTokenData(address(wft1), user2);
-
-        // user4 tries to contribute and fails
-        usdc.mint(user4, 1e6);
-        vm.prank(user4);
-        usdc.approve(address(router), 1e6);
-        vm.prank(user4);
-        vm.expectRevert("Sale__Closed()");
-        router.contribute(address(wft1), 1e6);
-        vm.prank(user4);
-        usdc.transfer(address(0x9999999999999999999999999999999999999999), 1e6);
-
         // user1 buys wft1
-        vm.assume(user1BuyAmount1 > 1000 && user1BuyAmount1 < 1_000_000_000_000_000_000);
+        vm.assume(user1BuyAmount1 > 1000 && user1BuyAmount1 < 10_000_000_000_000);
         (uint256 tokenAmtOut, uint256 slippage, uint256 minTokenAmtOut, uint256 autoMinTokenAmtOut) =
             multicall.buyQuoteIn(address(wft1), 0, 9800);
         (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
@@ -169,7 +92,7 @@ contract IntegrationTest is Test {
         tokenData = multicall.getTokenData(address(wft1), user1);
 
         // user1 buys wft again
-        vm.assume(user1BuyAmount2 > 1000 && user1BuyAmount2 < 1_000_000_000_000_000_000);
+        vm.assume(user1BuyAmount2 > 1000 && user1BuyAmount2 < 10_000_000_000_000);
         (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
             multicall.buyQuoteIn(address(wft1), user1BuyAmount2, 9800);
         (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
@@ -206,7 +129,7 @@ contract IntegrationTest is Test {
         tokenData = multicall.getTokenData(address(wft1), user1);
 
         // user2 buys wft1
-        vm.assume(user2BuyAmount1 > 1000 && user2BuyAmount1 < 1_000_000_000_000_000_000);
+        vm.assume(user2BuyAmount1 > 1000 && user2BuyAmount1 < 10_000_000_000_000);
         (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
             multicall.buyQuoteIn(address(wft1), user2BuyAmount1, 6000);
         (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
@@ -217,11 +140,6 @@ contract IntegrationTest is Test {
         vm.prank(user2);
         router.buy(address(wft1), address(0), user2BuyAmount1, 0, 0);
         tokenData = multicall.getTokenData(address(wft1), user2);
-
-        // user3 redeems wft1
-        vm.prank(user3);
-        router.redeem(address(wft1));
-        tokenData = multicall.getTokenData(address(wft1), user3);
 
         // user1 sells some wft1
         tokenData = multicall.getTokenData(address(wft1), user1);
@@ -268,11 +186,12 @@ contract IntegrationTest is Test {
         vm.prank(user3);
         wft1.approve(address(router), tokenData.accountTokenBalance);
         vm.prank(user3);
+        vm.expectRevert("Token__MinTradeSize()");
         router.sell(address(wft1), address(0), tokenData.accountTokenBalance, 0, 0);
         tokenData = multicall.getTokenData(address(wft1), user3);
 
         // user1 buys wft1
-        vm.assume(user1BuyAmount4 > 1000 && user1BuyAmount4 < 1_000_000_000_000_000_000);
+        vm.assume(user1BuyAmount4 > 1000 && user1BuyAmount4 < 10_000_000_000_000);
         (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
             multicall.buyQuoteIn(address(wft1), user1BuyAmount4, 9800);
         (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
@@ -366,7 +285,7 @@ contract IntegrationTest is Test {
         tokenData = multicall.getTokenData(address(wft1), user2);
 
         // user3 buys wft1
-        vm.assume(user3BuyAmount1 > 1000 && user3BuyAmount1 < 1_000_000_000_000_000_000);
+        vm.assume(user3BuyAmount1 > 1000 && user3BuyAmount1 < 10_000_000_000_000);
         (tokenAmtOut, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
             multicall.buyQuoteIn(address(wft1), user3BuyAmount1, 9800);
         (quoteRawIn, slippage, minTokenAmtOut, autoMinTokenAmtOut) =
@@ -379,7 +298,7 @@ contract IntegrationTest is Test {
         tokenData = multicall.getTokenData(address(wft1), user3);
 
         // user1 heals with usdc
-        vm.assume(user1Heal1 > 0 && user1Heal1 < 1_000_000_000_000_000_000);
+        vm.assume(user1Heal1 > 0 && user1Heal1 < 10_000_000_000_000);
         usdc.mint(user1, user1Heal1);
         vm.prank(user1);
         usdc.approve(address(wft1), user1Heal1);
@@ -400,7 +319,7 @@ contract IntegrationTest is Test {
         tokenData = multicall.getTokenData(address(wft1), user3);
 
         // user1 heals with usdc
-        vm.assume(user1Heal2 > 0 && user1Heal2 < 1_000_000_000_000_000_000);
+        vm.assume(user1Heal2 > 0 && user1Heal2 < 10_000_000_000_000);
         usdc.mint(user1, user1Heal2);
         vm.prank(user1);
         usdc.approve(address(wft1), user1Heal2);
@@ -576,5 +495,6 @@ contract IntegrationTest is Test {
         usdc.mint(address(router), 1e6);
         vm.prank(owner);
         router.withdrawStuckTokens(address(usdc), multisig);
+
     }
 }

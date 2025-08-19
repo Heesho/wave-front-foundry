@@ -12,7 +12,6 @@ interface ITokenFactory {
         address quote,
         uint256 initialSupply,
         uint256 reserveVirtQuoteRaw,
-        address saleFactory,
         address contentFactory,
         address rewarderFactory,
         address owner,
@@ -35,7 +34,6 @@ contract Core is Ownable {
     address public immutable quote;
 
     address public tokenFactory;
-    address public saleFactory;
     address public contentFactory;
     address public rewarderFactory;
     address public treasury;
@@ -50,7 +48,6 @@ contract Core is Ownable {
         string uri,
         uint256 index,
         address token,
-        address sale,
         address content,
         address rewarder,
         address indexed owner,
@@ -62,16 +59,9 @@ contract Core is Ownable {
     event Core__ContentFactorySet(address newContentFactory);
     event Core__RewarderFactorySet(address newRewarderFactory);
 
-    constructor(
-        address _quote,
-        address _tokenFactory,
-        address _saleFactory,
-        address _contentFactory,
-        address _rewarderFactory
-    ) Ownable() {
+    constructor(address _quote, address _tokenFactory, address _contentFactory, address _rewarderFactory) Ownable() {
         quote = _quote;
         tokenFactory = _tokenFactory;
-        saleFactory = _saleFactory;
         contentFactory = _contentFactory;
         rewarderFactory = _rewarderFactory;
     }
@@ -90,7 +80,6 @@ contract Core is Ownable {
             quote,
             INITIAL_SUPPLY,
             RESERVE_VIRT_QUOTE_RAW,
-            saleFactory,
             contentFactory,
             rewarderFactory,
             owner,
@@ -101,16 +90,7 @@ contract Core is Ownable {
         token_Index[token] = index;
 
         emit Core__TokenCreated(
-            name,
-            symbol,
-            uri,
-            index,
-            token,
-            IToken(token).sale(),
-            IToken(token).content(),
-            IToken(token).rewarder(),
-            owner,
-            isModerated
+            name, symbol, uri, index, token, IToken(token).content(), IToken(token).rewarder(), owner, isModerated
         );
     }
 
@@ -122,11 +102,6 @@ contract Core is Ownable {
     function setTokenFactory(address _tokenFactory) external onlyOwner {
         tokenFactory = _tokenFactory;
         emit Core__TokenFactorySet(_tokenFactory);
-    }
-
-    function setSaleFactory(address _saleFactory) external onlyOwner {
-        saleFactory = _saleFactory;
-        emit Core__SaleFactorySet(_saleFactory);
     }
 
     function setContentFactory(address _contentFactory) external onlyOwner {

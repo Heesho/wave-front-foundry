@@ -5,7 +5,6 @@ import {Script, console} from "forge-std/Script.sol";
 import {MockUSDC} from "../test/mocks/MockUSDC.sol";
 import {TokenFactory} from "../src/TokenFactory.sol";
 import {ContentFactory} from "../src/ContentFactory.sol";
-import {SaleFactory} from "../src/SaleFactory.sol";
 import {RewarderFactory} from "../src/RewarderFactory.sol";
 import {Core} from "../src/Core.sol";
 import {Router} from "../src/Router.sol";
@@ -15,7 +14,6 @@ contract Deploy is Script {
     MockUSDC public usdc;
     TokenFactory public tokenFactory;
     ContentFactory public contentFactory;
-    SaleFactory public saleFactory;
     RewarderFactory public rewarderFactory;
     Core public core;
     Router public router;
@@ -33,19 +31,10 @@ contract Deploy is Script {
         contentFactory = new ContentFactory();
         console.log("ContentFactory deployed at:", address(contentFactory));
 
-        saleFactory = new SaleFactory();
-        console.log("SaleFactory deployed at:", address(saleFactory));
-
         rewarderFactory = new RewarderFactory();
         console.log("RewarderFactory deployed at:", address(rewarderFactory));
 
-        core = new Core(
-            address(usdc),
-            address(tokenFactory),
-            address(saleFactory),
-            address(contentFactory),
-            address(rewarderFactory)
-        );
+        core = new Core(address(usdc), address(tokenFactory), address(contentFactory), address(rewarderFactory));
         console.log("Core deployed at:", address(core));
 
         router = new Router(address(core));

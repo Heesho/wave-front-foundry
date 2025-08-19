@@ -4,16 +4,6 @@ pragma solidity 0.8.19;
 import {IERC20, IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 
-interface ISale {
-    function endTime() external view returns (uint256);
-
-    function account_QuoteRaw(address account) external view returns (uint256);
-
-    function totalQuoteRaw() external view returns (uint256);
-
-    function totalTokenAmt() external view returns (uint256);
-}
-
 interface IToken {
     function quote() external view returns (address);
 
@@ -90,17 +80,10 @@ contract Multicall {
 
     address public immutable core;
 
-    enum Phase {
-        MARKET,
-        CONTRI,
-        REDEEM
-    }
-
     struct TokenData {
         uint256 index;
         address token;
         address quote;
-        address sale;
         address content;
         address rewarder;
         address owner;
@@ -108,9 +91,6 @@ contract Multicall {
         string symbol;
         string uri;
         bool isModerated;
-        bool marketOpen;
-        uint256 saleEnd;
-        uint256 totalQuoteContributed;
         uint256 marketCap;
         uint256 liquidity;
         uint256 floorPrice;
@@ -123,13 +103,10 @@ contract Multicall {
         uint256 accountDebt;
         uint256 accountCredit;
         uint256 accountTransferrable;
-        uint256 accountContributed;
-        uint256 accountRedeemable;
         uint256 accountContentStaked;
         uint256 accountQuoteEarned;
         uint256 accountTokenEarned;
         bool accountIsModerator;
-        Phase phase;
     }
 
     struct ContentData {
@@ -149,21 +126,8 @@ contract Multicall {
 
     function getTokenData(address token, address account) external view returns (TokenData memory data) {
         address quote = IToken(token).quote();
-        address sale = IToken(token).sale();
         address content = IToken(token).content();
         address rewarder = IToken(token).rewarder();
-
-        bool marketOpen = IToken(token).open();
-
-        uint256 totalContributed = ISale(sale).totalQuoteRaw();
-        uint256 xv = IToken(token).reserveVirtQuoteWad();
-        uint256 xr = IToken(token).reserveRealQuoteWad();
-        uint256 x0 = xv + xr;
-        uint256 y0 = IToken(token).reserveTokenAmt();
-
-        uint256 x1 = x0 + totalContributed - ((totalContributed * FEE) / DIVISOR);
-        uint256 y1 = x0.mulDivDown(y0, x1);
-        uint256 expectedTokenAmt = y0 - y1;
 
         uint256 index = ICore(core).token_Index(token);
         string memory uri = IContent(content).coverUri();
@@ -172,7 +136,6 @@ contract Multicall {
 
         data.token = token;
         data.quote = quote;
-        data.sale = sale;
         data.content = content;
         data.rewarder = rewarder;
         data.owner = IContent(content).owner();
@@ -182,17 +145,12 @@ contract Multicall {
         data.uri = uri;
         data.isModerated = IContent(content).isModerated();
 
-        data.marketOpen = marketOpen;
-        data.saleEnd = ISale(sale).endTime();
-        data.totalQuoteContributed = totalContributed;
-
-        data.marketCap = marketOpen
-            ? IToken(token).wadToRaw(IToken(token).maxSupply().mulDivDown(IToken(token).getMarketPrice(), PRECISION))
-            : totalContributed;
+        data.marketCap =
+            IToken(token).wadToRaw(IToken(token).maxSupply().mulDivDown(IToken(token).getMarketPrice(), PRECISION));
         data.liquidity =
             IToken(token).wadToRaw(IToken(token).reserveRealQuoteWad() + IToken(token).reserveVirtQuoteWad()) * 2;
         data.floorPrice = IToken(token).getFloorPrice();
-        data.marketPrice = marketOpen ? IToken(token).getMarketPrice() : x1.mulDivDown(PRECISION, y1);
+        data.marketPrice = IToken(token).getMarketPrice();
         data.circulatingSupply = IERC20(token).totalSupply();
         data.maxSupply = IToken(token).maxSupply();
 
@@ -220,35 +178,12 @@ contract Multicall {
             data.accountDebt = IToken(token).account_DebtRaw(account);
             data.accountCredit = IToken(token).getAccountCredit(account);
             data.accountTransferrable = IToken(token).getAccountTransferrable(account);
-            data.accountContributed = ISale(sale).account_QuoteRaw(account);
-            if (totalContributed > 0) {
-                data.accountRedeemable = marketOpen
-                    ? ISale(sale).totalTokenAmt().mulDivDown(data.accountContributed, totalContributed)
-                    : expectedTokenAmt.mulDivDown(data.accountContributed, totalContributed);
-            } else {
-                data.accountRedeemable = 0;
-            }
+
             data.accountContentStaked = accountContentStaked;
             data.accountQuoteEarned = IRewarder(rewarder).earned(account, quote);
             data.accountTokenEarned = IRewarder(rewarder).earned(account, token);
             data.accountIsModerator =
                 IContent(content).owner() == account || IContent(content).account_IsModerator(account);
-        }
-
-        if (!marketOpen && block.timestamp < data.saleEnd) {
-            data.phase = Phase.CONTRI;
-        } else if (!marketOpen && block.timestamp >= data.saleEnd) {
-            if (data.accountContributed > 0) {
-                data.phase = Phase.REDEEM;
-            } else {
-                data.phase = Phase.CONTRI;
-            }
-        } else {
-            if (data.accountContributed > 0) {
-                data.phase = Phase.REDEEM;
-            } else {
-                data.phase = Phase.MARKET;
-            }
         }
 
         return data;
@@ -308,11 +243,11 @@ contract Multicall {
         if (y1 >= y0) return (0, 0, 0, 0);
 
         tokenAmtOut = y0 - y1;
-        slippage = PRECISION - (tokenAmtOut.mulDivDown(IToken(token).getMarketPrice(), quoteWadIn));
+        slippage = 100 * (PRECISION - (tokenAmtOut.mulDivDown(IToken(token).getMarketPrice(), quoteWadIn)));
         minTokenAmtOut =
             quoteWadIn.mulDivDown(PRECISION, IToken(token).getMarketPrice()).mulDivDown(slippageTolerance, DIVISOR);
         autoMinTokenAmtOut = quoteWadIn.mulDivDown(PRECISION, IToken(token).getMarketPrice()).mulDivDown(
-            (DIVISOR * PRECISION) - ((slippage + PRECISION) * 100), DIVISOR * PRECISION
+            (DIVISOR * PRECISION) - ((slippage + PRECISION / 10) * 100), DIVISOR * PRECISION
         );
     }
 
@@ -336,10 +271,10 @@ contract Multicall {
 
         if (quoteRawIn == 0) return (0, 0, 0, 0);
 
-        slippage = PRECISION - (tokenAmtOut.mulDivDown(IToken(token).getMarketPrice(), quoteWadIn));
+        slippage = 100 * (PRECISION - (tokenAmtOut.mulDivDown(IToken(token).getMarketPrice(), quoteWadIn)));
         minTokenAmtOut = tokenAmtOut.mulDivDown(slippageTolerance, DIVISOR);
         autoMinTokenAmtOut =
-            tokenAmtOut.mulDivDown((DIVISOR * PRECISION) - ((slippage + PRECISION) * 100), DIVISOR * PRECISION);
+            tokenAmtOut.mulDivDown((DIVISOR * PRECISION) - ((slippage + PRECISION / 10) * 100), DIVISOR * PRECISION);
     }
 
     function sellTokenIn(address token, uint256 tokenAmtIn, uint256 slippageTolerance)
@@ -368,13 +303,16 @@ contract Multicall {
 
         if (quoteRawOut == 0) return (0, 0, 0, 0);
 
-        slippage = PRECISION
-            - (quoteWadOut.mulDivDown(PRECISION, tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION)));
+        slippage = 100
+            * (
+                PRECISION
+                    - (quoteWadOut.mulDivDown(PRECISION, tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION)))
+            );
         uint256 minQuoteWadOut =
             tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION).mulDivDown(slippageTolerance, DIVISOR);
         minQuoteRawOut = IToken(token).wadToRaw(minQuoteWadOut);
         uint256 autoMinQuoteWadOut = tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION).mulDivDown(
-            (DIVISOR * PRECISION) - ((slippage + PRECISION) * 100), DIVISOR * PRECISION
+            (DIVISOR * PRECISION) - ((slippage + PRECISION / 10) * 100), DIVISOR * PRECISION
         );
         autoMinQuoteRawOut = IToken(token).wadToRaw(autoMinQuoteWadOut);
     }
@@ -397,12 +335,15 @@ contract Multicall {
 
         if (tokenAmtIn < MIN_TRADE_AMOUNT) return (0, 0, 0, 0);
 
-        slippage = PRECISION
-            - (quoteWadOut.mulDivDown(PRECISION, (tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION))));
+        slippage = 100
+            * (
+                PRECISION
+                    - (quoteWadOut.mulDivDown(PRECISION, (tokenAmtIn.mulDivDown(IToken(token).getMarketPrice(), PRECISION))))
+            );
         uint256 minQuoteWadIn = quoteWadOut.mulDivDown(slippageTolerance, DIVISOR);
         minQuoteRawOut = IToken(token).wadToRaw(minQuoteWadIn);
         uint256 autoMinQuoteWadIn =
-            quoteWadOut.mulDivDown((DIVISOR * PRECISION) - ((slippage + PRECISION) * 100), DIVISOR * PRECISION);
+            quoteWadOut.mulDivDown((DIVISOR * PRECISION) - ((slippage + PRECISION / 10) * 100), DIVISOR * PRECISION);
         autoMinQuoteRawOut = IToken(token).wadToRaw(autoMinQuoteWadIn);
     }
 }
